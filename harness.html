@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brick Mosaic — dev harness</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1c1f26; --line: #2b3039;
+    --text: #e6e9ee; --dim: #99a2b0; --accent: #4c9ffe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header span { color: var(--dim); font-size: 12px; }
+  main { display: grid; grid-template-columns: 280px 1fr; gap: 0; align-items: start; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+
+  #controls { padding: 16px 20px; border-right: 1px solid var(--line); }
+  fieldset { border: 0; padding: 0; margin: 0 0 18px; }
+  legend {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--dim); margin-bottom: 8px; padding: 0;
+  }
+  label { display: block; margin-bottom: 10px; font-size: 13px; }
+  label .val { float: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin-top: 2px; }
+  input[type=number], select {
+    width: 100%; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit;
+  }
+  .row { display: flex; gap: 8px; }
+  .row > label { flex: 1; }
+  button {
+    background: var(--accent); color: #06121f; border: 0; border-radius: 6px;
+    padding: 8px 12px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--line); font-weight: 400; }
+
+  #stage { padding: 16px 20px; }
+  #drop {
+    border: 1px dashed var(--line); border-radius: 10px; padding: 40px;
+    text-align: center; color: var(--dim); cursor: pointer;
+  }
+  #drop.over { border-color: var(--accent); color: var(--text); }
+  canvas {
+    max-width: 100%; image-rendering: pixelated; border-radius: 8px;
+    border: 1px solid var(--line); display: block;
+  }
+  #stats { color: var(--dim); font-size: 12px; margin: 10px 0 16px; font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; max-width: 560px; }
+  th { text-align: left; font-weight: 500; color: var(--dim); font-size: 11px;
+       text-transform: uppercase; letter-spacing: .06em; padding-bottom: 6px; }
+  td { padding: 3px 10px 3px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block;
+        vertical-align: -2px; border: 1px solid rgba(255,255,255,.18); }
+  code { color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Brick Mosaic</h1>
+  <span>pipeline harness — area-average downsample → CIELAB quantize → Floyd–Steinberg</span>
+</header>
+
+<main>
+  <div id="controls">
+    <fieldset>
+      <legend>Grid</legend>
+      <div class="row">
+        <label>Studs across <input type="number" id="cols" value="48" min="8" max="256" step="1"></label>
+        <label>Studs down <input type="number" id="rows" value="48" min="8" max="256" step="1"></label>
+      </div>
+      <label><input type="checkbox" id="lockAspect" checked> Match photo aspect ratio</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Palette</legend>
+      <label>Colors
+        <select id="paletteMode">
+          <option value="full">All brick colors</option>
+          <option value="gray">Grayscale only (4)</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Dithering</legend>
+      <label><input type="checkbox" id="dither" checked> Floyd–Steinberg</label>
+      <label>Strength <span class="val" id="strengthVal">0.55</span>
+        <input type="range" id="strength" min="0" max="1" step="0.05" value="0.55">
+      </label>
+      <label>Detail protect <span class="val" id="protectVal">0.85</span>
+        <input type="range" id="protect" min="0" max="1" step="0.05" value="0.85">
+      </label>
+      <label>Sharpen <span class="val" id="sharpenVal">0.30</span>
+        <input type="range" id="sharpen" min="0" max="1" step="0.05" value="0.3">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tone</legend>
+      <label>Brightness <span class="val" id="brightnessVal">0</span>
+        <input type="range" id="brightness" min="-100" max="100" step="1" value="0"></label>
+      <label>Contrast <span class="val" id="contrastVal">0</span>
+        <input type="range" id="contrast" min="-100" max="100" step="1" value="0"></label>
+      <label>Saturation <span class="val" id="saturationVal">1.00</span>
+        <input type="range" id="saturation" min="0" max="2" step="0.05" value="1"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Preview</legend>
+      <label>Stud size <span class="val" id="cellVal">12</span>
+        <input type="range" id="cell" min="4" max="24" step="1" value="12"></label>
+      <label><input type="checkbox" id="studs" checked> Draw studs</label>
+    </fieldset>
+
+    <div class="row">
+      <button id="reset" class="ghost">Reset</button>
+      <button id="download">Save PNG</button>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="drop">Drop a photo here, or click to choose one
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+    <canvas id="canvas" hidden></canvas>
+    <div id="stats"></div>
+    <div id="bom"></div>
+  </div>
+</main>
+
+<script type="module">
+import { buildMosaic, renderToRGBA } from './src/mosaic.js';
+import { PALETTE, paletteFromCodes, GRAYSCALE_CODES } from './src/palette.js';
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d');
+
+let source = null;      // {width, height, data} from the decoded photo
+let sourceAspect = 1;
+
+// --- loading ---------------------------------------------------------------
+
+async function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const bitmap = await createImageBitmap(file);
+
+  // Cap the working resolution: the box filter is exact regardless, and this
+  // keeps a 48-megapixel phone photo from stalling the main thread.
+  const MAX = 2000;
+  const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+
+  const off = new OffscreenCanvas(w, h);
+  const octx = off.getContext('2d');
+  octx.drawImage(bitmap, 0, 0, w, h);
+  source = octx.getImageData(0, 0, w, h);
+  sourceAspect = w / h;
+  bitmap.close();
+
+  $('drop').hidden = true;
+  canvas.hidden = false;
+  syncAspect();
+  render();
+}
+
+$('drop').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', (e) => loadFile(e.target.files[0]));
+for (const evt of ['dragenter', 'dragover']) {
+  document.addEventListener(evt, (e) => { e.preventDefault(); $('drop').classList.add('over'); });
+}
+document.addEventListener('dragleave', () => $('drop').classList.remove('over'));
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  $('drop').classList.remove('over');
+  loadFile(e.dataTransfer.files[0]);
+});
+
+// --- controls --------------------------------------------------------------
+
+function syncAspect() {
+  if (!source || !$('lockAspect').checked) return;
+  $('rows').value = Math.max(1, Math.round(Number($('cols').value) / sourceAspect));
+}
+
+const inputs = ['cols', 'rows', 'lockAspect', 'paletteMode', 'dither', 'strength',
+                'protect', 'sharpen',
+                'brightness', 'contrast', 'saturation', 'cell', 'studs'];
+for (const id of inputs) {
+  $(id).addEventListener('input', () => {
+    if (id === 'cols' || id === 'lockAspect') syncAspect();
+    render();
+  });
+}
+
+$('reset').addEventListener('click', () => {
+  const defaults = { cols: 48, rows: 48, strength: 0.55, protect: 0.85, sharpen: 0.3,
+                     brightness: 0, contrast: 0, saturation: 1, cell: 12 };
+  for (const [k, v] of Object.entries(defaults)) $(k).value = v;
+  $('dither').checked = true; $('studs').checked = true; $('lockAspect').checked = true;
+  $('paletteMode').value = 'full';
+  syncAspect();
+  render();
+});
+
+$('download').addEventListener('click', () => {
+  if (!source) return;
+  canvas.toBlob((blob) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `mosaic-${$('cols').value}x${$('rows').value}.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+});
+
+// --- render ----------------------------------------------------------------
+
+function render() {
+  for (const [id, fmt] of [['strength', (v) => (+v).toFixed(2)],
+                           ['protect', (v) => (+v).toFixed(2)],
+                           ['sharpen', (v) => (+v).toFixed(2)],
+                           ['brightness', String],
+                           ['contrast', String], ['saturation', (v) => (+v).toFixed(2)],
+                           ['cell', String]]) {
+    $(id + 'Val').textContent = fmt($(id).value);
+  }
+  if (!source) return;
+
+  const t0 = performance.now();
+  const mosaic = buildMosaic(source, {
+    cols: Math.max(1, Number($('cols').value)),
+    rows: Math.max(1, Number($('rows').value)),
+    palette: $('paletteMode').value === 'gray' ? paletteFromCodes(GRAYSCALE_CODES) : PALETTE,
+    dither: $('dither').checked ? 'floyd-steinberg' : 'none',
+    ditherStrength: Number($('strength').value),
+    detailProtect: Number($('protect').value),
+    sharpen: Number($('sharpen').value),
+    brightness: Number($('brightness').value),
+    contrast: Number($('contrast').value),
+    saturation: Number($('saturation').value),
+  });
+  const img = renderToRGBA(mosaic, {
+    cellSize: Number($('cell').value),
+    studs: $('studs').checked,
+  });
+  const ms = performance.now() - t0;
+
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+
+  $('stats').textContent =
+    `${mosaic.cols}×${mosaic.rows} = ${mosaic.totalBricks.toLocaleString()} bricks · ` +
+    `${mosaic.bom.length} colors used · mean ΔE ${mosaic.meanError.toFixed(1)} · ${ms.toFixed(0)} ms`;
+
+  $('bom').innerHTML =
+    '<table><thead><tr><th>Color</th><th>Code</th><th>BL#</th><th>Qty</th><th>%</th></tr></thead><tbody>' +
+    mosaic.bom.map(({ color, count }) => `
+      <tr>
+        <td><span class="sw" style="background:${color.hex}"></span> ${color.name}</td>
+        <td><code>${color.code}</code></td>
+        <td><code>${color.blId}</code></td>
+        <td>${count.toLocaleString()}</td>
+        <td>${((count / mosaic.totalBricks) * 100).toFixed(1)}</td>
+      </tr>`).join('') +
+    '</tbody></table>';
+}
+
+render();
+</script>
+</body>
+</html>

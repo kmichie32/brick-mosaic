@@ -1,0 +1,1657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brick Mosaic — turn a photo into bricks</title>
+<style>
+  :root {
+    --paper:   #fbf7f0;
+    --card:    #ffffff;
+    --ink:     #241f1a;
+    --muted:   #6f6459;
+    --line:    #e6ddd0;
+    --brand:   #d8342b;
+    --brand-d: #b3251d;
+    --sun:     #f5b81c;
+    --sky:     #2b7cd3;
+    --shadow:  0 1px 2px rgba(60,40,20,.06), 0 8px 24px rgba(60,40,20,.07);
+    --radius:  16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 16px/1.55 ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { margin: 0; letter-spacing: -0.015em; }
+  p { margin: 0; }
+  button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+
+  /* ---------- chrome ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px; max-width: 1120px; margin: 0 auto;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; }
+  .logo .brick {
+    width: 30px; height: 22px; border-radius: 5px; background: var(--brand);
+    position: relative; box-shadow: inset 0 -3px 0 rgba(0,0,0,.14);
+  }
+  .logo .brick::before, .logo .brick::after {
+    content: ''; position: absolute; top: -4px; width: 9px; height: 6px;
+    border-radius: 3px 3px 1px 1px; background: var(--brand);
+  }
+  .logo .brick::before { left: 4px; }
+  .logo .brick::after  { right: 4px; }
+  .topbar .spacer { flex: 1; }
+  .linkish { color: var(--muted); font-size: 14px; text-decoration: none; }
+  .linkish:hover { color: var(--ink); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---------- steps ---------- */
+  .steps { display: flex; gap: 8px; margin: 4px 0 28px; flex-wrap: wrap; }
+  .step-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px 7px 8px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--line); color: var(--muted);
+    font-size: 14px; font-weight: 600;
+  }
+  .step-chip .n {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--line);
+    color: var(--muted); display: grid; place-items: center; font-size: 12px;
+  }
+  .step-chip[aria-current="true"] { color: var(--ink); border-color: var(--ink); }
+  .step-chip[aria-current="true"] .n { background: var(--ink); color: #fff; }
+  .step-chip[data-done="true"] { color: var(--ink); }
+  .step-chip[data-done="true"] .n { background: #3d9a5c; color: #fff; }
+  .step-chip[data-clickable="true"] { cursor: pointer; }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
+  }
+  .card + .card { margin-top: 20px; }
+  .card h2 { font-size: 21px; margin-bottom: 4px; }
+  .card .sub { color: var(--muted); font-size: 15px; margin-bottom: 20px; }
+
+  .cols { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
+  /* Grid items default to min-width:auto, so without this the table inside
+     still overflows even when the track itself is allowed to shrink. */
+  .cols > * { min-width: 0; }
+  /* minmax(0,1fr), not 1fr: a bare 1fr floors at min-content, and the build
+     list's table is wide enough to push the whole page sideways on a phone. */
+  @media (max-width: 880px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---------- upload ---------- */
+  .drop {
+    border: 2px dashed var(--line); border-radius: var(--radius);
+    padding: 56px 24px; text-align: center; background: #fffdf9;
+    transition: border-color .15s, background .15s;
+  }
+  .drop.over { border-color: var(--brand); background: #fff6f4; }
+  .drop .big { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .drop .small { color: var(--muted); font-size: 14px; }
+  .drop .studs { display: flex; gap: 6px; justify-content: center; margin-bottom: 18px; }
+  .drop .studs i {
+    width: 20px; height: 20px; border-radius: 5px; display: block;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.15);
+  }
+  .upload-error {
+    margin-top: 14px; padding: 12px 16px; border-radius: 12px;
+    background: #fdf0ee; border: 1px solid #f3c9c3; color: #9a2f26;
+    font-size: 14px; line-height: 1.5;
+  }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 22px; border-radius: 12px; font-weight: 700; font-size: 16px;
+    background: var(--brand); color: #fff;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+    transition: transform .08s, background .15s;
+  }
+  .btn:hover { background: var(--brand-d); }
+  .btn:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 rgba(0,0,0,.18); }
+  .btn.ghost {
+    background: #fff; color: var(--ink); border: 1px solid var(--line);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.05);
+  }
+  .btn.ghost:hover { background: #fbf7f0; }
+  .btn.sm { padding: 9px 16px; font-size: 14px; border-radius: 10px; }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; align-items: center; }
+  .actions .spacer { flex: 1; }
+
+  /* ---------- choice tiles ---------- */
+  .tiles { display: grid; gap: 10px; }
+  .tiles.two { grid-template-columns: repeat(2, 1fr); }
+  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  .tile {
+    text-align: left; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: #fff; display: flex; gap: 12px;
+    align-items: center; transition: border-color .15s, background .15s;
+  }
+  .tile:hover { border-color: #cdbfab; }
+  .tile[aria-pressed="true"] { border-color: var(--ink); background: #fffaf2; box-shadow: inset 0 0 0 1px var(--ink); }
+  .tile .name { font-weight: 700; font-size: 15px; }
+  .tile .meta { color: var(--muted); font-size: 13px; }
+  .tile .shape { border: 2px solid var(--muted); border-radius: 4px; flex: none; }
+  .tile[aria-pressed="true"] .shape { border-color: var(--ink); }
+
+  .field-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--muted); margin: 22px 0 10px;
+  }
+  .field-label:first-child { margin-top: 0; }
+
+  /* ---------- crop ---------- */
+  .cropwrap { display: grid; place-items: center; background: #f2ece2;
+              border-radius: var(--radius); padding: 20px; }
+  #cropCanvas {
+    border-radius: 10px; touch-action: none; cursor: grab;
+    box-shadow: 0 6px 20px rgba(60,40,20,.18); max-width: 100%;
+  }
+  #cropCanvas:active { cursor: grabbing; }
+  .zoomrow { display: flex; align-items: center; gap: 12px; margin-top: 16px; width: 100%; max-width: 420px; }
+  .zoomrow span { font-size: 18px; color: var(--muted); }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: none; }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 3px; background: var(--line);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--ink); margin-top: -8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  }
+
+  /* ---------- preview ---------- */
+  .previewwrap { display: grid; place-items: center; background: #f2ece2;
+                 border-radius: var(--radius); padding: 20px; min-height: 260px; }
+  #outCanvas, #finalCanvas {
+    image-rendering: pixelated; border-radius: 8px; max-width: 100%; height: auto;
+    box-shadow: 0 6px 20px rgba(60,40,20,.18);
+  }
+  .slider-row { margin-bottom: 16px; }
+  .slider-row label {
+    display: flex; justify-content: space-between; font-size: 14px;
+    font-weight: 600; margin-bottom: 4px;
+  }
+  .slider-row .v { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  .toggle { display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+            border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--brand); flex: none; }
+  .toggle .name { font-weight: 700; font-size: 15px; }
+  .toggle .meta { color: var(--muted); font-size: 13px; }
+
+  details.tune { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+  details.tune summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--muted); }
+  details.tune summary:hover { color: var(--ink); }
+  details.tune > div { padding-top: 16px; }
+
+  /* ---------- results ---------- */
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .fact { background: #fffaf2; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .fact .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  .fact .v { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fact .n { font-size: 12px; color: var(--muted); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+       color: var(--muted); padding-bottom: 8px; font-weight: 700; }
+  td { padding: 7px 12px 7px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  td.num { text-align: right; padding-right: 0; }
+  .sw { width: 18px; height: 18px; border-radius: 4px; display: inline-block;
+        vertical-align: -4px; margin-right: 10px; border: 1px solid rgba(0,0,0,.15);
+        box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); }
+  .note { color: var(--muted); font-size: 13px; margin-top: 14px; }
+
+  .warn {
+    display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px;
+    margin-bottom: 10px; font-size: 14px; line-height: 1.45;
+  }
+  .warn .ico { flex: none; font-size: 15px; line-height: 1.4; }
+  .warn .t { font-weight: 700; }
+  .warn .d { color: var(--muted); }
+  .warn.caution { background: #fdf6e8; border: 1px solid #f0dcae; }
+  .warn.info    { background: #f2f6fb; border: 1px solid #d6e2f0; }
+  .warn.ok      { background: #f1f8f2; border: 1px solid #cfe6d4; }
+
+  .viewtabs { display: inline-flex; gap: 4px; padding: 4px; background: #f2ece2;
+              border-radius: 10px; margin-bottom: 10px; }
+  .viewtabs button {
+    padding: 6px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--muted);
+  }
+  .viewtabs button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+  #outlineCanvas { border-radius: 8px; max-width: 100%; height: auto; touch-action: none;
+                   cursor: crosshair; box-shadow: 0 6px 20px rgba(60,40,20,.18); }
+
+  .tracebar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .inline-toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; }
+  .inline-toggle input { width: 17px; height: 17px; accent-color: var(--brand); }
+  .zoomctl { display: inline-flex; align-items: center; gap: 8px; flex: 1; min-width: 140px; }
+  .zoomctl span { color: var(--muted); }
+  .zoomctl input[type=range] { width: 100%; }
+
+  .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .swatch {
+    border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: #fff;
+    display: flex; flex-direction: column; gap: 5px; align-items: stretch;
+  }
+  .swatch:hover { border-color: #cdbfab; }
+  .swatch[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .swatch .chip {
+    height: 32px; border-radius: 6px; border: 1px solid rgba(0,0,0,.12);
+  }
+  .swatch .lbl { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; }
+  .swatch[aria-pressed="true"] .lbl { color: var(--ink); }
+
+  .costrow { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .costrow label { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .costrow input {
+    display: block; width: 110px; margin-top: 4px; padding: 8px 10px; font: inherit;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  }
+  .costout { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .costout span { font-size: 13px; font-weight: 500; color: var(--muted); }
+
+  .vendor {
+    display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+    margin-bottom: 10px; text-decoration: none; color: inherit; background: #fff;
+  }
+  .vendor:hover { border-color: #cdbfab; background: #fffaf2; }
+  .vendor .head { display: flex; align-items: baseline; gap: 8px; }
+  .vendor .name { font-weight: 700; font-size: 15px; }
+  .vendor .tag {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); background: #f4efe6; border-radius: 999px; padding: 2px 8px;
+  }
+  .vendor .d { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .hidden { display: none !important; }
+  .working { color: var(--muted); font-size: 14px; }
+  .scroller { overflow-x: auto; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 0 14px 60px; }
+    .card { padding: 18px 16px; border-radius: 14px; }
+    .card h2 { font-size: 19px; }
+    .drop { padding: 40px 16px; }
+    .cropwrap, .previewwrap { padding: 12px; }
+    .tiles.three { grid-template-columns: 1fr 1fr; }
+    .tiles.two { grid-template-columns: 1fr; }
+    .actions .btn { flex: 1; justify-content: center; }
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><span class="brick"></span> Brick Mosaic</div>
+  <div class="spacer"></div>
+  <a class="linkish" href="harness.html">Developer view</a>
+</div>
+
+<div class="wrap">
+  <div class="steps" id="steps">
+    <button class="step-chip" data-step="1"><span class="n">1</span> Choose a photo</button>
+    <button class="step-chip" data-step="2"><span class="n">2</span> Frame it</button>
+    <button class="step-chip" data-step="3"><span class="n">3</span> Pick your look</button>
+    <button class="step-chip" data-step="4"><span class="n">4</span> Build list</button>
+  </div>
+
+  <!-- ================= STEP 1 ================= -->
+  <section class="card" id="panel1">
+    <h2>Start with a photo you love</h2>
+    <p class="sub">A pet, a wedding, the dog dressed as a wizard. Faces and bold shapes work best.</p>
+    <div class="drop" id="drop">
+      <div class="studs">
+        <i style="background:#d8342b"></i><i style="background:#f5b81c"></i>
+        <i style="background:#2b7cd3"></i><i style="background:#3d9a5c"></i>
+      </div>
+      <div class="big">Drop a photo here</div>
+      <div class="small">or <u>browse your files</u> · JPG, PNG or HEIC · stays on your device</div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </div>
+    <div class="upload-error hidden" id="uploadError"></div>
+  </section>
+
+  <!-- ================= STEP 2 ================= -->
+  <section class="card hidden" id="panel2">
+    <h2>Frame it up</h2>
+    <p class="sub">Drag the photo to move it, and zoom until it looks right.
+      Crop in close — detail comes from studs, and a face needs about 30 across to show eyes and a mouth.</p>
+    <div class="cols">
+      <div>
+        <div class="cropwrap">
+          <canvas id="cropCanvas"></canvas>
+          <div class="zoomrow">
+            <span>−</span>
+            <input type="range" id="zoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom">
+            <span>+</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Shape</div>
+        <div class="tiles three" id="aspects"></div>
+        <div class="field-label">Size</div>
+        <div class="tiles" id="sizes"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="back1">Use a different photo</button>
+      <div class="spacer"></div>
+      <button class="btn" id="to3">Next: pick your look</button>
+    </div>
+  </section>
+
+  <!-- ================= STEP 3 ================= -->
+  <section class="card hidden" id="panel3">
+    <h2>Pick your look</h2>
+    <p class="sub">This is your mosaic, brick for brick. Try a few — you can always come back.</p>
+    <div class="cols">
+      <div>
+        <div class="viewtabs hidden" id="viewTabs">
+          <button data-view="result" aria-pressed="true">Result</button>
+          <button data-view="outline" aria-pressed="false">Adjust the outline</button>
+        </div>
+        <div class="previewwrap">
+          <canvas id="outCanvas"></canvas>
+          <canvas id="outlineCanvas" class="hidden"></canvas>
+        </div>
+        <div class="hidden" id="outlineHelp">
+          <div class="viewtabs" id="outlineModes" style="margin-top:10px">
+            <button data-mode="replace" aria-pressed="true">Trace the subject</button>
+            <button data-mode="cut" aria-pressed="false">Cut a piece out</button>
+          </div>
+          <div class="tracebar">
+            <button class="btn ghost sm" id="outlineUndo" title="Undo the last line">Undo</button>
+            <button class="btn ghost sm" id="outlineRedo" title="Put it back">Redo</button>
+            <button class="btn sm" id="outlineClose">Finish shape</button>
+            <button class="btn ghost sm" id="outlineReset">Auto-detect</button>
+          </div>
+          <div class="tracebar">
+            <label class="inline-toggle">
+              <input type="checkbox" id="snapEdges" checked> Snap to edges
+            </label>
+            <span class="zoomctl">
+              <span>&minus;</span>
+              <input type="range" id="traceZoom" min="1" max="5" step="0.1" value="1" aria-label="Zoom">
+              <span>+</span>
+            </span>
+          </div>
+          <p class="note" id="outlineCount"></p>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Style</div>
+        <div class="tiles two" id="looks"></div>
+
+        <div class="field-label">Detail</div>
+        <label class="toggle">
+          <input type="checkbox" id="dither" checked>
+          <span>
+            <span class="name">Blend colors</span><br>
+            <span class="meta">Mixes bricks to smooth out skies and skin — lettering and sharp edges stay crisp automatically. Off gives a bolder, posterized look.</span>
+          </span>
+        </label>
+
+        <div class="field-label">Background</div>
+        <label class="toggle">
+          <input type="checkbox" id="removeBg">
+          <span>
+            <span class="name">Replace the background</span><br>
+            <span class="meta">Works best when the background behind your subject is fairly plain.</span>
+          </span>
+        </label>
+        <div id="bgPanel" class="hidden">
+          <div class="tiles" id="finishes" style="margin-top:12px"></div>
+          <div id="backdropWrap">
+            <div class="field-label">Backdrop color</div>
+            <div class="swatches" id="backdrops"></div>
+          </div>
+          <p class="note">Not quite right? Use <strong>Adjust the outline</strong> above the picture.</p>
+          <div id="bgWarn"></div>
+        </div>
+
+        <details class="tune">
+          <summary>Fine-tune the colors</summary>
+          <div>
+            <div class="slider-row">
+              <label for="brightness">Brightness <span class="v" id="brightnessV">0</span></label>
+              <input type="range" id="brightness" min="-60" max="60" step="1" value="0">
+            </div>
+            <div class="slider-row">
+              <label for="contrast">Contrast <span class="v" id="contrastV">0</span></label>
+              <input type="range" id="contrast" min="-50" max="60" step="1" value="0">
+            </div>
+            <div class="slider-row">
+              <label for="saturation">Color punch <span class="v" id="saturationV">0</span></label>
+              <input type="range" id="saturation" min="-100" max="100" step="1" value="0">
+            </div>
+            <div class="slider-row">
+              <label for="shadows">Open up shadows <span class="v" id="shadowsV">0</span></label>
+              <input type="range" id="shadows" min="0" max="80" step="1" value="0">
+            </div>
+            <button class="btn ghost sm" id="resetTune">Reset colors</button>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="back2">Back to framing</button>
+      <span class="working" id="working"></span>
+      <div class="spacer"></div>
+      <button class="btn" id="to4">Next: my build list</button>
+    </div>
+  </section>
+
+  <!-- ================= STEP 4 ================= -->
+  <section class="card hidden" id="panel4">
+    <h2>Your build list</h2>
+    <p class="sub">Everything you need to source the bricks and follow the map.</p>
+    <div class="cols">
+      <div>
+        <div class="facts" id="facts"></div>
+
+        <label class="toggle" style="margin-bottom:16px">
+          <input type="checkbox" id="simplify" checked>
+          <span>
+            <span class="name">Simplify for ordering</span><br>
+            <span class="meta" id="simplifyMeta">Merges barely-used colors into their nearest match.</span>
+          </span>
+        </label>
+
+        <div id="warnings"></div>
+
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Brick color</th><th>Part</th><th>BrickLink #</th><th class="num">You need</th></tr></thead>
+            <tbody id="bomBody"></tbody>
+          </table>
+        </div>
+        <p class="note">
+          Each line is one lot to order: a color <em>and</em> a part. BrickLink color numbers
+          are there so you can filter straight to the right thing. Studs left empty by
+          "Subject only" aren't listed, because you don't buy them.
+        </p>
+
+        <div class="field-label">Rough cost</div>
+        <div class="costrow">
+          <label for="ppp">Price per piece
+            <input type="number" id="ppp" value="0.06" min="0.01" max="1" step="0.01">
+          </label>
+          <div class="costout" id="costOut"></div>
+        </div>
+        <p class="note" id="costNote"></p>
+
+        <div class="field-label">Where to order</div>
+        <div id="vendors"></div>
+      </div>
+      <div>
+        <div class="previewwrap"><canvas id="finalCanvas"></canvas></div>
+        <div class="actions" style="margin-top:16px; flex-direction:column; align-items:stretch">
+          <button class="btn" id="dlWanted">Download BrickLink wanted list</button>
+          <button class="btn ghost" id="printSheet">Print build sheet (actual size)</button>
+          <button class="btn ghost" id="dlPng">Save the picture</button>
+          <button class="btn ghost" id="dlCsv">Shopping list (CSV)</button>
+          <button class="btn ghost" id="dlMap">Build map (CSV)</button>
+          <p class="note" id="printNote"></p>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="back3">Back to the look</button>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="startOver">Start over with a new photo</button>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { buildMosaic, renderToRGBA, toGridMap } from './src/mosaic.js';
+import { PALETTE, paletteFromCodes, GRAYSCALE_CODES } from './src/palette.js';
+import { ASPECTS, SIZES, resolveGrid, physicalSize, baseplateLayout, formatInches } from './src/sizing.js';
+import {
+  PARTS, VENDORS, analyzeBuild, estimateCost, buildBuyableMosaic, toWantedListXML,
+} from './src/sourcing.js';
+import { BACKDROPS } from './src/backdrop.js';
+import { FINISH_PRESETS } from './src/parts.js';
+import { ovalOutline, outlineFromMask, emptyOutline, simplifyPath } from './src/outline.js';
+import { toShoppingListCSV, toBuildMapCSV, verifyBuildMap } from './src/exports.js';
+import { edgeMap, snapToEdges, resamplePath, smoothPath } from './src/trace.js';
+import { buildPrintSheetHTML, pageLayout } from './src/printsheet.js';
+
+const $ = (id) => document.getElementById(id);
+
+/** Style presets. These are the only color decisions most people will make. */
+const LOOKS = [
+  { id: 'natural', name: 'True to life', meta: 'Faithful colors',      b: 0,  c: 6,  s: 5,  gray: false },
+  { id: 'vivid',   name: 'Vivid',        meta: 'Brighter and punchier', b: 6, c: 16, s: 40, gray: false },
+  { id: 'poster',  name: 'Poster',       meta: 'Graphic and high-contrast', b: 2, c: 38, s: 20, gray: false },
+  { id: 'mono',    name: 'Black & white',meta: 'Four grays, classic',   b: 0,  c: 18, s: 0,  gray: true  },
+];
+
+const state = {
+  img: null,            // ImageData of the (downscaled) source photo
+  aspect: ASPECTS[0],
+  size: SIZES[1],
+  look: LOOKS[0],
+  zoom: 1,
+  offX: 0, offY: 0,     // pan, in frame pixels
+  dither: true,
+  tune: { b: 0, c: 0, s: 0, sh: 0 },   // user deltas on top of the look preset
+  bg: { remove: false, backdrop: 'softgrey', tolerance: 16 },
+  outline: null,        // hand-drawn subject outline; null = auto-detect
+  view: 'result',       // 'result' | 'outline'
+  drawMode: 'replace',  // 'replace' starts a new shape, 'cut' subtracts
+  draft: [],            // the open line being built, across as many strokes as it takes
+  history: [], historyAt: -1,
+  snap: true,
+  edges: null,          // cached edge map of the current crop
+  finish: 'all-plates',
+  simplify: true,               // drop long-tail colors to cut ordering lots
+  mosaic: null,
+  simplifyReport: null,         // { dropped, initialColors } when simplified
+};
+
+/** A color used fewer times than this costs more in ordering hassle than it adds. */
+const MIN_COUNT = 20;
+
+// ===========================================================================
+// Step navigation
+// ===========================================================================
+
+let step = 1;
+let furthest = 1;
+
+function goto(n) {
+  step = n;
+  furthest = Math.max(furthest, n);
+  for (let i = 1; i <= 4; i++) $('panel' + i).classList.toggle('hidden', i !== n);
+  for (const chip of $('steps').children) {
+    const s = Number(chip.dataset.step);
+    chip.setAttribute('aria-current', String(s === n));
+    chip.dataset.done = String(s < n);
+    chip.dataset.clickable = String(s <= furthest);
+  }
+  if (n === 2) drawCrop();
+  if (n === 3) { renderMosaic(); drawOutline(); }
+  if (n === 4) { ensureMosaic(); renderResults(); }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+for (const chip of $('steps').children) {
+  chip.addEventListener('click', () => {
+    const s = Number(chip.dataset.step);
+    if (s <= furthest && state.img) goto(s);
+  });
+}
+$('back1').addEventListener('click', () => goto(1));
+$('back2').addEventListener('click', () => goto(2));
+$('back3').addEventListener('click', () => goto(3));
+$('to3').addEventListener('click', () => goto(3));
+$('to4').addEventListener('click', () => goto(4));
+$('startOver').addEventListener('click', () => {
+  state.img = null;
+  furthest = 1;
+  $('file').value = '';
+  goto(1);
+});
+
+// ===========================================================================
+// Step 1 — load
+// ===========================================================================
+
+function showUploadError(msg) {
+  const el = $('uploadError');
+  el.textContent = msg;
+  el.classList.toggle('hidden', !msg);
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  showUploadError('');
+
+  if (!file.type.startsWith('image/')) {
+    showUploadError(`"${file.name}" doesn't look like an image (${file.type || 'unknown type'}). Try a JPG, PNG, or HEIC.`);
+    return;
+  }
+
+  let bitmap;
+  try {
+    // `from-image` honours EXIF, so photos shot in portrait don't arrive sideways.
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch (err) {
+    // A wrong-but-plausible MIME type, or a file that's truncated / has a
+    // corrupt header, lands here — the browser can't decode pixels out of it
+    // even though the extension and file.type say "image".
+    console.error('image decode failed', err);
+
+    // HEIC is the iPhone default and decodes in Safari but not in Chrome or
+    // Firefox, so it's worth its own message rather than "file may be corrupt".
+    const heic = /\.(heic|heif)$/i.test(file.name) || /heic|heif/i.test(file.type);
+    showUploadError(
+      heic
+        ? `"${file.name}" is an iPhone HEIC photo, which this browser can't open. ` +
+          `Safari opens them, or export the photo as JPG and try again.`
+        : `Couldn't open "${file.name}" — the file may be corrupted or in a format your ` +
+          `browser can't decode. Try re-exporting it as a JPG or PNG and upload again.`,
+    );
+    return;
+  }
+
+  // Cap the working resolution. The area-average filter is exact either way,
+  // and this keeps a 48-megapixel phone photo from stalling the page.
+  const MAX = 2000;
+  const k = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * k));
+  const h = Math.max(1, Math.round(bitmap.height * k));
+  const off = new OffscreenCanvas(w, h);
+  const octx = off.getContext('2d');
+  octx.drawImage(bitmap, 0, 0, w, h);
+  state.img = octx.getImageData(0, 0, w, h);
+  cropBitmap = off;   // the framing canvas draws from this
+  bitmap.close();
+
+  // Start framed on the whole photo. A new picture invalidates any outline
+  // traced around the last one.
+  state.zoom = 1;
+  state.offX = 0;
+  state.offY = 0;
+  state.outline = null;
+  state.view = 'result';
+  state.draft = [];
+  state.history = []; state.historyAt = -1;
+  state.edges = null;
+  $('zoom').value = 1;
+  goto(2);
+}
+
+$('drop').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', (e) => loadFile(e.target.files[0]));
+for (const ev of ['dragenter', 'dragover']) {
+  document.addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); });
+}
+document.addEventListener('dragleave', (e) => {
+  if (e.relatedTarget === null) $('drop').classList.remove('over');
+});
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  $('drop').classList.remove('over');
+  loadFile(e.dataTransfer.files[0]);
+});
+
+// ===========================================================================
+// Step 2 — framing
+// ===========================================================================
+
+function buildTiles() {
+  $('aspects').innerHTML = ASPECTS.map((a) => {
+    const s = 26;
+    const w = a.w >= a.h ? s : Math.round((s * a.w) / a.h);
+    const h = a.h >= a.w ? s : Math.round((s * a.h) / a.w);
+    return `<button class="tile" data-aspect="${a.id}" aria-pressed="false" style="justify-content:center">
+      <span class="shape" style="width:${w}px;height:${h}px"></span>
+      <span class="name">${a.label}</span></button>`;
+  }).join('');
+
+  $('sizes').innerHTML = SIZES.map((z) => {
+    const g = resolveGrid(state.aspect, z.studs);
+    return `<button class="tile" data-size="${z.id}" aria-pressed="false">
+      <span style="flex:1">
+        <span class="name">${z.label}</span>
+        <span class="meta"> — ${z.blurb}</span><br>
+        <span class="meta" data-dims>${formatInches(g.cols, g.rows)} · ${g.cols}×${g.rows} studs</span>
+      </span></button>`;
+  }).join('');
+
+  $('looks').innerHTML = LOOKS.map((l) => `
+    <button class="tile" data-look="${l.id}" aria-pressed="false">
+      <span><span class="name">${l.name}</span><br><span class="meta">${l.meta}</span></span>
+    </button>`).join('');
+
+  $('aspects').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-aspect]');
+    if (!t) return;
+    state.aspect = ASPECTS.find((a) => a.id === t.dataset.aspect);
+    state.offX = state.offY = 0;
+    state.zoom = 1;
+    $('zoom').value = 1;
+    syncTiles();
+    drawCrop();
+  });
+  $('sizes').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-size]');
+    if (!t) return;
+    state.size = SIZES.find((z) => z.id === t.dataset.size);
+    syncTiles();
+  });
+  $('looks').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-look]');
+    if (!t) return;
+    state.look = LOOKS.find((l) => l.id === t.dataset.look);
+    state.tune = { b: 0, c: 0, s: 0, sh: 0 };
+    syncSliders();
+    syncTiles();
+    renderMosaic();
+  });
+}
+
+function syncTiles() {
+  for (const el of $('aspects').children) {
+    el.setAttribute('aria-pressed', String(el.dataset.aspect === state.aspect.id));
+  }
+  for (const el of $('sizes').children) {
+    el.setAttribute('aria-pressed', String(el.dataset.size === state.size.id));
+    const z = SIZES.find((s) => s.id === el.dataset.size);
+    const g = resolveGrid(state.aspect, z.studs);
+    el.querySelector('[data-dims]').textContent =
+      `${formatInches(g.cols, g.rows)} · ${g.cols}×${g.rows} studs`;
+  }
+  for (const el of $('looks').children) {
+    el.setAttribute('aria-pressed', String(el.dataset.look === state.look.id));
+  }
+}
+
+/**
+ * Frame size on screen, in CSS pixels, for the current aspect.
+ * Measured from the container rather than fixed, so the pointer math stays
+ * calibrated to what's actually on screen at phone widths.
+ */
+function frameSize() {
+  const wrap = $('cropCanvas').parentElement;
+  const avail = wrap.clientWidth ? wrap.clientWidth - 40 : 440;   // minus .cropwrap padding
+  const MAX = Math.max(200, Math.min(440, avail));
+  const a = state.aspect;
+  return a.w >= a.h
+    ? { w: MAX, h: Math.round((MAX * a.h) / a.w) }
+    : { w: Math.round((MAX * a.w) / a.h), h: MAX };
+}
+
+/** Scale that makes the photo exactly cover the frame at zoom 1. */
+function coverScale(frame) {
+  return Math.max(frame.w / state.img.width, frame.h / state.img.height);
+}
+
+/** Clamp the pan so the photo never pulls away from a frame edge. */
+function clampPan(frame) {
+  const s = coverScale(frame) * state.zoom;
+  const mx = Math.max(0, (state.img.width * s - frame.w) / 2);
+  const my = Math.max(0, (state.img.height * s - frame.h) / 2);
+  state.offX = Math.min(mx, Math.max(-mx, state.offX));
+  state.offY = Math.min(my, Math.max(-my, state.offY));
+}
+
+/** The visible region of the source photo, in source pixels. */
+function cropRect() {
+  const frame = frameSize();
+  clampPan(frame);
+  const s = coverScale(frame) * state.zoom;
+  return {
+    x: state.img.width / 2 - (frame.w / 2 + state.offX) / s,
+    y: state.img.height / 2 - (frame.h / 2 + state.offY) / s,
+    width: frame.w / s,
+    height: frame.h / s,
+  };
+}
+
+let cropBitmap = null;   // the source photo as a drawable, cached
+
+function drawCrop() {
+  if (!state.img) return;
+  const frame = frameSize();
+  const cv = $('cropCanvas');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = frame.w * dpr;
+  cv.height = frame.h * dpr;
+  cv.style.width = frame.w + 'px';
+  cv.style.height = frame.h + 'px';
+
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, frame.w, frame.h);
+
+  clampPan(frame);
+  const s = coverScale(frame) * state.zoom;
+  const dw = state.img.width * s;
+  const dh = state.img.height * s;
+  ctx.drawImage(cropBitmap, frame.w / 2 - dw / 2 + state.offX, frame.h / 2 - dh / 2 + state.offY, dw, dh);
+
+  // A light stud grid, so the framing step already hints at the end result.
+  const g = resolveGrid(state.aspect, state.size.studs);
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 1; i < g.cols; i += 8) { ctx.moveTo((i * frame.w) / g.cols, 0); ctx.lineTo((i * frame.w) / g.cols, frame.h); }
+  for (let j = 1; j < g.rows; j += 8) { ctx.moveTo(0, (j * frame.h) / g.rows); ctx.lineTo(frame.w, (j * frame.h) / g.rows); }
+  ctx.stroke();
+}
+
+// Pointer drag to pan.
+{
+  const cv = $('cropCanvas');
+  let dragging = false, lastX = 0, lastY = 0;
+  cv.addEventListener('pointerdown', (e) => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    state.offX += e.clientX - lastX;
+    state.offY += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    drawCrop();
+  });
+  const end = () => { dragging = false; };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    state.zoom = Math.min(4, Math.max(1, state.zoom * (e.deltaY < 0 ? 1.06 : 1 / 1.06)));
+    $('zoom').value = state.zoom;
+    drawCrop();
+  }, { passive: false });
+}
+
+$('zoom').addEventListener('input', (e) => {
+  state.zoom = Number(e.target.value);
+  drawCrop();
+});
+
+// The frame is measured from the layout, so a rotate or resize needs a redraw.
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!state.img) return;
+    if (step === 2) drawCrop();
+    if (step === 3) renderMosaic();
+  }, 120);
+});
+
+// ===========================================================================
+// Step 3 — the mosaic
+// ===========================================================================
+
+const TUNE_IDS = ['brightness', 'contrast', 'saturation', 'shadows'];
+
+function syncSliders() {
+  $('brightness').value = state.tune.b;
+  $('contrast').value = state.tune.c;
+  $('saturation').value = state.tune.s;
+  $('shadows').value = state.tune.sh;
+  for (const id of TUNE_IDS) {
+    const v = Number($(id).value);
+    $(id + 'V').textContent = v > 0 ? `+${v}` : String(v);
+  }
+}
+
+for (const id of TUNE_IDS) {
+  $(id).addEventListener('input', () => {
+    state.tune = {
+      b: Number($('brightness').value),
+      c: Number($('contrast').value),
+      s: Number($('saturation').value),
+      sh: Number($('shadows').value),
+    };
+    syncSliders();
+    renderMosaic();
+  });
+}
+$('resetTune').addEventListener('click', () => {
+  state.tune = { b: 0, c: 0, s: 0, sh: 0 };
+  syncSliders();
+  renderMosaic();
+});
+
+// --- background ------------------------------------------------------------
+
+/** CSS preview for a backdrop swatch, built from the real palette colors. */
+function swatchStyle(b) {
+  const hex = (code) => PALETTE.find((c) => c.code === code).hex;
+  if (b.kind === 'solid') return `background:${hex(b.code)}`;
+  if (b.kind === 'gradient') return `background:linear-gradient(${hex(b.from)},${hex(b.to)})`;
+  return `background:radial-gradient(circle,${hex(b.from)},${hex(b.to)})`;
+}
+
+$('finishes').innerHTML = FINISH_PRESETS.map((f) => `
+  <button class="tile" data-finish="${f.id}" aria-pressed="false">
+    <span><span class="name">${f.name}</span><br><span class="meta">${f.blurb}</span></span>
+  </button>`).join('');
+
+$('finishes').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-finish]');
+  if (!t) return;
+  state.finish = t.dataset.finish;
+  syncBackdrops();
+  runRender();
+  renderResults();
+});
+
+$('backdrops').innerHTML = BACKDROPS.map((b) => `
+  <button class="swatch" data-backdrop="${b.id}" aria-pressed="false" title="${b.name}">
+    <span class="chip" style="${swatchStyle(b)}"></span>
+    <span class="lbl">${b.name}</span>
+  </button>`).join('');
+
+function syncBackdrops() {
+  for (const el of $('backdrops').children) {
+    el.setAttribute('aria-pressed', String(el.dataset.backdrop === state.bg.backdrop));
+  }
+  for (const el of $('finishes').children) {
+    el.setAttribute('aria-pressed', String(el.dataset.finish === state.finish));
+  }
+  // With no background there's nothing to colour, so the swatches would be a
+  // control that does nothing.
+  $('backdropWrap').classList.toggle('hidden', currentFinish().background === 'none');
+  $('bgPanel').classList.toggle('hidden', !state.bg.remove);
+  $('removeBg').checked = state.bg.remove;
+  if (!state.bg.remove) state.view = 'result';
+  syncView();
+  syncOutlineButtons();
+}
+
+const currentFinish = () =>
+  (FINISH_PRESETS.find((f) => f.id === state.finish) ?? FINISH_PRESETS[0]).finish;
+
+$('removeBg').addEventListener('change', () => {
+  state.bg.remove = $('removeBg').checked;
+  // Seed the outline from automatic detection the first time it's switched on.
+  // Auto-detection is a decent starting guess and a poor final answer, so it
+  // becomes a shape you can drag rather than something you have to accept.
+  if (state.bg.remove && !state.outline) {
+    seedOutline();
+    state.draft = [];
+    state.history = []; state.historyAt = -1;
+    pushHistory();
+    ensureEdges();
+  }
+  syncBackdrops();
+  runRender();
+  drawOutline();
+});
+
+/** Run one auto-detection pass and trace an editable outline from the result. */
+function seedOutline() {
+  const g = resolveGrid(state.aspect, state.size.studs);
+  try {
+    const probe = buildMosaic(state.img, {
+      ...pipelineOptions(),
+      background: { remove: true, backdrop: state.bg.backdrop, tolerance: state.bg.tolerance },
+    });
+    const bg = probe.background;
+    state.outline = bg && !bg.suspect
+      ? outlineFromMask(bg.mask, g.cols, g.rows)
+      : ovalOutline();
+  } catch {
+    state.outline = ovalOutline();
+  }
+}
+
+$('outlineReset').addEventListener('click', () => {
+  seedOutline();
+  state.draft = [];
+  state.drawMode = 'replace';
+  state.history = []; state.historyAt = -1;
+  pushHistory();
+  runRender();
+  renderResults();
+  drawOutline();
+});
+
+// --- outline editor --------------------------------------------------------
+
+for (const b of $('viewTabs').children) {
+  b.addEventListener('click', () => {
+    state.view = b.dataset.view;
+    syncView();
+    if (state.view === 'outline') drawOutline();
+  });
+}
+
+function syncView() {
+  const editing = state.bg.remove && state.view === 'outline';
+  $('viewTabs').classList.toggle('hidden', !state.bg.remove);
+  $('outCanvas').classList.toggle('hidden', editing);
+  $('outlineCanvas').classList.toggle('hidden', !editing);
+  $('outlineHelp').classList.toggle('hidden', !editing);
+  for (const b of $('viewTabs').children) {
+    b.setAttribute('aria-pressed', String(b.dataset.view === state.view));
+  }
+}
+
+/** Canvas size for the editor, matching the mosaic's aspect. */
+function outlineSize() {
+  const g = resolveGrid(state.aspect, state.size.studs);
+  const wrap = $('outlineCanvas').parentElement;
+  // Clamp against the viewport too: the parent's width can lag behind a resize,
+  // and sizing the canvas from a stale value leaves it scaled and soft.
+  const MAX = Math.max(220, Math.min(
+    460,
+    (wrap.clientWidth || 460) - 40,
+    window.innerWidth - 72,
+  ));
+  const aspect = g.cols / g.rows;
+  return aspect >= 1
+    ? { w: MAX, h: Math.round(MAX / aspect) }
+    : { w: Math.round(MAX * aspect), h: MAX };
+}
+
+// The editor's own viewport, so you can zoom in and trace accurately.
+const tview = { z: 1, cx: 0.5, cy: 0.5 };
+
+function clampView() {
+  const half = 0.5 / tview.z;
+  tview.cx = Math.min(1 - half, Math.max(half, tview.cx));
+  tview.cy = Math.min(1 - half, Math.max(half, tview.cy));
+}
+
+/** normalised frame coords -> canvas pixels */
+function toPx(p, w, h) {
+  const half = 0.5 / tview.z;
+  return { x: (p.x - (tview.cx - half)) * tview.z * w, y: (p.y - (tview.cy - half)) * tview.z * h };
+}
+/** canvas pixels -> normalised frame coords */
+function toNorm(px, py, w, h) {
+  const half = 0.5 / tview.z;
+  return { x: px / (w * tview.z) + tview.cx - half, y: py / (h * tview.z) + tview.cy - half };
+}
+
+/**
+ * The edge map is built from the cropped photo, cached until the crop moves.
+ * 320px on the long edge is plenty: it only has to locate boundaries to within
+ * a stud, and a smaller map keeps the snap instant while drawing.
+ */
+function ensureEdges() {
+  if (state.edges || !cropBitmap) return;
+  const c = cropRect();
+  const long = 320;
+  const w = c.width >= c.height ? long : Math.round((long * c.width) / c.height);
+  const h = c.height > c.width ? long : Math.round((long * c.height) / c.width);
+  const off = new OffscreenCanvas(w, h);
+  const ctx = off.getContext('2d');
+  ctx.drawImage(cropBitmap, c.x, c.y, c.width, c.height, 0, 0, w, h);
+  state.edges = edgeMap(ctx.getImageData(0, 0, w, h));
+}
+
+function drawOutline() {
+  if (!state.img || !state.outline || !cropBitmap) return;
+  const cv = $('outlineCanvas');
+  const { w, h } = outlineSize();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = w * dpr;
+  cv.height = h * dpr;
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // The cropped photo, through the editor's zoom window.
+  clampView();
+  const c = cropRect();
+  const half = 0.5 / tview.z;
+  ctx.drawImage(
+    cropBitmap,
+    c.x + (tview.cx - half) * c.width, c.y + (tview.cy - half) * c.height,
+    c.width / tview.z, c.height / tview.z,
+    0, 0, w, h,
+  );
+
+  const trace = (loop, close) => {
+    if (loop.length < 2) return;
+    const p0 = toPx(loop[0], w, h);
+    ctx.moveTo(p0.x, p0.y);
+    for (const p of loop.slice(1)) {
+      const q = toPx(p, w, h);
+      ctx.lineTo(q.x, q.y);
+    }
+    if (close) ctx.closePath();
+  };
+
+  // Dim what will be replaced. Even-odd matches the mask exactly, so what looks
+  // dim on screen is what actually goes.
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  for (const loop of state.outline.loops ?? []) trace(loop, true);
+  ctx.fillStyle = 'rgba(20,14,8,.58)';
+  ctx.fill('evenodd');
+
+  // Committed shapes.
+  ctx.beginPath();
+  for (const loop of state.outline.loops ?? []) trace(loop, true);
+  ctx.strokeStyle = 'rgba(0,0,0,.55)';
+  ctx.lineWidth = 3.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // The open line in progress, dashed so it reads as unfinished.
+  if (state.draft.length > 1) {
+    ctx.beginPath();
+    trace(state.draft, false);
+    ctx.strokeStyle = 'rgba(0,0,0,.5)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.beginPath();
+    trace(state.draft, false);
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = 'var(--brand)';
+    ctx.strokeStyle = '#ffd34d';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Where the shape will close back to.
+    const s0 = toPx(state.draft[0], w, h);
+    ctx.beginPath();
+    ctx.arc(s0.x, s0.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd34d';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+// ---- history ---------------------------------------------------------------
+
+function snapshot() {
+  return JSON.stringify({ loops: state.outline?.loops ?? [], draft: state.draft });
+}
+function pushHistory() {
+  // Anything redone-past is discarded once you draw again, as everywhere else.
+  state.history = state.history.slice(0, state.historyAt + 1);
+  state.history.push(snapshot());
+  if (state.history.length > 60) state.history.shift();
+  state.historyAt = state.history.length - 1;
+  syncOutlineButtons();
+}
+function restore(at) {
+  state.historyAt = at;
+  const snap = JSON.parse(state.history[at]);
+  state.outline = { loops: snap.loops };
+  state.draft = snap.draft;
+  syncOutlineButtons();
+  drawOutline();
+  runRender();
+  renderResults();
+}
+
+$('outlineUndo').addEventListener('click', () => {
+  if (state.historyAt > 0) restore(state.historyAt - 1);
+});
+$('outlineRedo').addEventListener('click', () => {
+  if (state.historyAt < state.history.length - 1) restore(state.historyAt + 1);
+});
+
+// ---- committing a shape ----------------------------------------------------
+
+/** Turn the open draft into a closed loop. */
+function finishShape() {
+  if (state.draft.length < 4) return;
+  ensureEdges();
+
+  let loop = resamplePath(state.draft, 0.008);
+  if (state.snap) loop = snapToEdges(loop, state.edges, { radius: 0.022 });
+  loop = simplifyPath(smoothPath(loop, 1), 0.003);
+
+  // "Trace" starts a new shape; everything after is a cut, because even-odd
+  // means a loop drawn inside an existing one punches a hole.
+  state.outline = state.drawMode === 'replace'
+    ? { loops: [loop] }
+    : { loops: [...(state.outline.loops ?? []), loop] };
+  state.drawMode = 'cut';
+  state.draft = [];
+
+  pushHistory();
+  drawOutline();
+  runRender();
+  renderResults();
+}
+
+$('outlineClose').addEventListener('click', finishShape);
+
+$('snapEdges').addEventListener('change', () => { state.snap = $('snapEdges').checked; });
+
+$('traceZoom').addEventListener('input', () => {
+  tview.z = Number($('traceZoom').value);
+  drawOutline();
+});
+
+function syncOutlineButtons() {
+  const loops = state.outline?.loops?.length ?? 0;
+  for (const b of $('outlineModes').children) {
+    b.setAttribute('aria-pressed', String(b.dataset.mode === state.drawMode));
+  }
+  $('outlineUndo').disabled = state.historyAt <= 0;
+  $('outlineRedo').disabled = state.historyAt >= state.history.length - 1;
+  $('outlineClose').disabled = state.draft.length < 4;
+
+  $('outlineCount').textContent = state.draft.length
+    ? 'Keep going — lift your finger and carry on wherever you like. ' +
+      'Press Finish shape (or end near the yellow dot) to close it.'
+    : loops === 0
+      ? 'Nothing traced yet — the whole picture is kept.'
+      : `${loops} ${loops === 1 ? 'shape' : 'shapes'}. Draw inside one to cut a piece out.`;
+}
+
+for (const b of $('outlineModes').children) {
+  b.addEventListener('click', () => {
+    state.drawMode = b.dataset.mode;
+    syncOutlineButtons();
+  });
+}
+
+// ---- pointer handling ------------------------------------------------------
+
+{
+  const cv = $('outlineCanvas');
+  const active = new Map();          // pointerId -> last position
+  let drawingId = null;
+  let pinch = null;
+
+  const local = (e) => {
+    const r = cv.getBoundingClientRect();
+    return { px: e.clientX - r.left, py: e.clientY - r.top, w: r.width, h: r.height };
+  };
+
+  cv.addEventListener('pointerdown', (e) => {
+    if (!state.outline) return;
+    active.set(e.pointerId, e);
+    e.preventDefault();
+    // Capture is a nice-to-have; it throws for some pointer types. Doing it
+    // after the state updates, and swallowing the failure, means a throw can
+    // never take drawing down with it.
+    try { cv.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
+
+    // Two fingers means pan and zoom, not drawing — the standard mapping, and
+    // it's the only way to work accurately on a phone.
+    if (active.size === 2) {
+      const [a, b] = [...active.values()];
+      pinch = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), z: tview.z,
+                cx: tview.cx, cy: tview.cy,
+                mid: { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 } };
+      // Abandon whatever half-stroke the first finger started.
+      if (drawingId !== null && state.draft.length) {
+        state.draft = state.draft.slice(0, state.draftStart ?? 0);
+        drawingId = null;
+        drawOutline();
+      }
+      return;
+    }
+
+    drawingId = e.pointerId;
+    state.draftStart = state.draft.length;      // so a pinch can roll this back
+    const { px, py, w, h } = local(e);
+    state.draft.push(toNorm(px, py, w, h));
+  });
+
+  cv.addEventListener('pointermove', (e) => {
+    if (!active.has(e.pointerId)) return;
+    active.set(e.pointerId, e);
+
+    if (pinch && active.size === 2) {
+      const [a, b] = [...active.values()];
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const r = cv.getBoundingClientRect();
+      tview.z = Math.min(5, Math.max(1, pinch.z * (dist / pinch.dist)));
+      const mid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+      tview.cx = pinch.cx - (mid.x - pinch.mid.x) / (r.width * tview.z);
+      tview.cy = pinch.cy - (mid.y - pinch.mid.y) / (r.height * tview.z);
+      $('traceZoom').value = tview.z;
+      drawOutline();
+      return;
+    }
+
+    if (e.pointerId !== drawingId) return;
+    const { px, py, w, h } = local(e);
+    const p = toNorm(px, py, w, h);
+    const last = state.draft[state.draft.length - 1];
+    // Drop points that add nothing; the raw stream is far denser than the shape
+    // needs, and the resample pass evens it out properly later anyway.
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 0.003) {
+      state.draft.push(p);
+      drawOutline();
+      syncOutlineButtons();
+    }
+  });
+
+  const release = (e) => {
+    active.delete(e.pointerId);
+    if (active.size < 2) pinch = null;
+    if (e.pointerId !== drawingId) return;
+    drawingId = null;
+
+    // Ending near where the line began closes the shape, the way every lasso
+    // tool works. Otherwise the draft stays open for the next stroke.
+    if (state.draft.length > 4) {
+      const a = state.draft[0];
+      const b = state.draft[state.draft.length - 1];
+      if (Math.hypot(a.x - b.x, a.y - b.y) < 0.05 / tview.z) { finishShape(); return; }
+    }
+    pushHistory();
+    drawOutline();
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', release);
+
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    tview.z = Math.min(5, Math.max(1, tview.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+    $('traceZoom').value = tview.z;
+    drawOutline();
+  }, { passive: false });
+}
+
+$('backdrops').addEventListener('click', (e) => {
+  const t = e.target.closest('[data-backdrop]');
+  if (!t) return;
+  state.bg.backdrop = t.dataset.backdrop;
+  syncBackdrops();
+  renderMosaic();
+});
+
+/**
+ * Background removal is a heuristic, and the honest failure mode is "it took
+ * too much" or "it took almost nothing". Say so rather than letting someone
+ * wonder why their subject vanished.
+ */
+function renderBgWarning() {
+  const bg = state.mosaic?.background;
+  if (!state.bg.remove || !bg) { $('bgWarn').innerHTML = ''; return; }
+  const pct = Math.round(bg.coverage * 100);
+  let msg = null;
+  if (bg.coverage > 0.9) {
+    msg = `That removed ${pct}% of the picture — probably more than you wanted. Try dragging "how much to remove" left.`;
+  } else if (bg.suspect) {
+    msg = `Couldn't tell your subject from the background here, so the photo is unchanged. ` +
+          `Use <strong>Adjust the outline</strong> above and draw around what you want to keep — ` +
+          `that always works.`;
+  } else if (bg.coverage < 0.08) {
+    msg = `Only ${pct}% was recognised as background. Draw around your subject with ` +
+          `<strong>Adjust the outline</strong> instead.`;
+  }
+  $('bgWarn').innerHTML = msg
+    ? `<div class="warn caution" style="margin-top:12px"><span class="ico">!</span><span><span class="d">${msg}</span></span></div>`
+    : '';
+}
+$('dither').addEventListener('change', () => {
+  state.dither = $('dither').checked;
+  renderMosaic();
+});
+
+/** Preset + user tweak, mapped onto the pipeline's units. */
+function toneSettings() {
+  const l = state.look;
+  const t = state.tune;
+  // `?? 0` on every term: buildMosaic now rejects non-finite values outright,
+  // and a missing tune field should not be able to take the preview down.
+  return {
+    brightness: (l.b ?? 0) + (t.b ?? 0),
+    contrast: (l.c ?? 0) + (t.c ?? 0),
+    // The UI slider is -100..100 around "normal"; the pipeline wants 0..2.
+    saturation: Math.max(0, 1 + ((l.s ?? 0) + (t.s ?? 0)) / 100),
+    // Shadow slider is 0..80; the pipeline wants 0..0.8.
+    shadows: (t.sh ?? 0) / 100,
+  };
+}
+
+let pendingTimer = null;
+
+/** Everything the pipeline needs, derived from the current UI state. */
+function pipelineOptions() {
+  const g = resolveGrid(state.aspect, state.size.studs);
+  return {
+    cols: g.cols,
+    rows: g.rows,
+    crop: cropRect(),
+    palette: state.look.gray ? paletteFromCodes(GRAYSCALE_CODES) : PALETTE,
+    dither: state.dither ? 'floyd-steinberg' : 'none',
+    background: state.bg.remove ? { ...state.bg, outline: state.outline } : null,
+    finish: state.bg.remove ? currentFinish() : undefined,
+    ...toneSettings(),
+  };
+}
+
+/**
+ * Build the mosaic and paint the step-3 preview. Simplification runs here
+ * rather than only at the build list, so the picture you approve is the
+ * picture you get a shopping list for.
+ */
+function runRender() {
+  pendingTimer = null;
+  const options = pipelineOptions();
+
+  if (state.simplify) {
+    const { mosaic, dropped, initialColors } =
+      buildBuyableMosaic(state.img, options, { minCount: MIN_COUNT });
+    state.mosaic = mosaic;
+    state.simplifyReport = { dropped, initialColors };
+  } else {
+    state.mosaic = buildMosaic(state.img, options);
+    state.simplifyReport = null;
+  }
+
+  paint($('outCanvas'), state.mosaic);
+  renderBgWarning();
+  $('working').textContent = '';
+}
+
+/**
+ * Coalesce rapid input (slider drags) into one build.
+ *
+ * Deliberately setTimeout rather than requestAnimationFrame: rAF is suspended
+ * in a hidden tab, so anyone who switched away mid-render would come back to a
+ * blank preview, an empty build list, and a stuck "Laying bricks…".
+ */
+function renderMosaic() {
+  if (!state.img) return;
+  $('working').textContent = 'Laying bricks…';
+  clearTimeout(pendingTimer);
+  pendingTimer = setTimeout(runRender, 0);
+}
+
+/** Force any queued build to finish now — before anything reads state.mosaic. */
+function ensureMosaic() {
+  if (!state.img) return;
+  if (pendingTimer !== null) clearTimeout(pendingTimer);
+  if (pendingTimer !== null || !state.mosaic) runRender();
+}
+
+function paint(canvas, mosaic) {
+  // Pick a stud size that lands the preview near 460px without going blurry.
+  const cell = Math.max(4, Math.min(16, Math.round(460 / Math.max(mosaic.cols, mosaic.rows))));
+  const img = renderToRGBA(mosaic, { cellSize: cell, studs: cell >= 6 });
+  canvas.width = img.width;
+  canvas.height = img.height;
+  canvas.style.width = Math.min(460, img.width) + 'px';
+  canvas.getContext('2d').putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+}
+
+// ===========================================================================
+// Step 4 — build list
+// ===========================================================================
+
+function renderResults() {
+  const m = state.mosaic;
+  if (!m) return;
+  paint($('finalCanvas'), m);
+
+  const plates = baseplateLayout(m.cols, m.rows);
+  const { wIn, hIn } = physicalSize(m.cols, m.rows);
+  const round = (v) => (v < 10 ? v.toFixed(1) : Math.round(v));
+  // A color used as both a plate and a tile is one color but two things to buy,
+  // so the two numbers are genuinely different and both worth showing.
+  const colors = new Set(m.bom.map((e) => e.color.code)).size;
+  const parts = [...new Set(m.bom.map((e) => e.part.name))];
+
+  $('facts').innerHTML = `
+    <div class="fact"><div class="k">Finished size</div>
+      <div class="v">${round(wIn)}″ × ${round(hIn)}″</div>
+      <div class="n">${m.cols} × ${m.rows} studs</div></div>
+    <div class="fact"><div class="k">Bricks</div>
+      <div class="v">${m.totalBricks.toLocaleString()}</div>
+      <div class="n">${m.totalBricks < m.studs
+        ? `of ${m.studs.toLocaleString()} studs — rest left empty`
+        : parts.join(' + ')}</div></div>
+    <div class="fact"><div class="k">Colors</div>
+      <div class="v">${colors}</div>
+      <div class="n">${m.bom.length} ${m.bom.length === 1 ? 'lot' : 'lots'} to buy</div></div>
+    <div class="fact"><div class="k">Baseplates</div>
+      <div class="v">${plates.total}</div>
+      <div class="n">${plates.across} × ${plates.down} of 32×32</div></div>`;
+
+  $('bomBody').innerHTML = m.bom.map(({ color, part, count }) => `
+    <tr>
+      <td><span class="sw" style="background:${color.hex}"></span>${color.name}</td>
+      <td>${part.name}</td>
+      <td>${color.blId}</td>
+      <td class="num">${count.toLocaleString()}</td>
+    </tr>`).join('');
+
+  renderWarnings(m);
+  renderCost(m);
+  renderVendors();
+  syncSimplifyLabel();
+
+  const sheets = pageLayout(m, 'letter').total;
+  $('printNote').textContent =
+    `The build sheet prints at true size — ${sheets} ${sheets === 1 ? 'page' : 'pages'} of ` +
+    `letter paper, one square per stud. Print at 100% (not "fit to page"), check the ` +
+    `100 mm bar, then lay any bricks you own on top to compare the colors before you order.`;
+}
+
+/** Feasibility notes — the things that bite after the order arrives. */
+function renderWarnings(m) {
+  const { warnings } = analyzeBuild(m, { minCount: MIN_COUNT });
+  const icons = { caution: '!', info: 'i', ok: '✓' };
+
+  const items = warnings.length
+    ? warnings
+    : [{ level: 'ok', title: 'Nothing to flag', detail: 'Fits one baseplate, no barely-used colors — this is a clean build.' }];
+
+  $('warnings').innerHTML = items.map((w) => `
+    <div class="warn ${w.level}">
+      <span class="ico">${icons[w.level] ?? 'i'}</span>
+      <span><span class="t">${w.title}</span><br><span class="d">${w.detail}</span></span>
+    </div>`).join('');
+}
+
+function renderCost(m) {
+  const rate = Number($('ppp').value);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    $('costOut').textContent = '—';
+    return;
+  }
+  const { total } = estimateCost(m, rate);
+  $('costOut').innerHTML =
+    `$${total.toFixed(2)} <span>for ${m.totalBricks.toLocaleString()} pieces</span>`;
+  $('costNote').textContent =
+    `Pieces only — excludes baseplates and shipping, and you'll pay a minimum per seller ` +
+    `across ${m.bom.length} color lots. The rate above is a placeholder: check live prices, ` +
+    `since rare colors run several times the common ones.`;
+}
+
+function renderVendors() {
+  $('vendors').innerHTML = VENDORS.map((v) => `
+    <a class="vendor" href="${v.url}" target="_blank" rel="noopener noreferrer">
+      <span class="head"><span class="name">${v.name}</span><span class="tag">${v.best}</span></span>
+      <span class="d">${v.detail}</span>
+    </a>`).join('');
+}
+
+function syncSimplifyLabel() {
+  const r = state.simplifyReport;
+  $('simplifyMeta').textContent = r && r.dropped.length
+    ? `Merged ${r.dropped.length} barely-used ${r.dropped.length === 1 ? 'color' : 'colors'} ` +
+      `into their nearest match — ${r.initialColors} colors down to ${state.mosaic.bom.length}, ` +
+      `so that's ${r.dropped.length} fewer lots to buy.`
+    : 'Merges barely-used colors into their nearest match, so you buy fewer separate lots.';
+}
+
+$('simplify').addEventListener('change', () => {
+  state.simplify = $('simplify').checked;
+  runRender();        // synchronous: the build list below reads state.mosaic
+  renderResults();
+});
+
+$('ppp').addEventListener('input', () => {
+  if (state.mosaic) renderCost(state.mosaic);
+});
+
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+const asCSV = (text) => new Blob([text], { type: 'text/csv' });
+
+$('dlPng').addEventListener('click', () => {
+  const m = state.mosaic;
+  const img = renderToRGBA(m, { cellSize: 16, studs: true });
+  const cv = new OffscreenCanvas(img.width, img.height);
+  cv.getContext('2d').putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
+  cv.convertToBlob({ type: 'image/png' }).then((b) => download(`mosaic-${m.cols}x${m.rows}.png`, b));
+});
+
+$('dlCsv').addEventListener('click', () => {
+  const m = state.mosaic;
+  download(`shopping-list-${m.cols}x${m.rows}.csv`, asCSV(toShoppingListCSV(m)));
+});
+
+$('dlMap').addEventListener('click', () => {
+  const m = state.mosaic;
+  const map = toBuildMapCSV(m);
+  // Cheap insurance: never hand someone instructions that don't rebuild the
+  // picture they approved.
+  const { ok, reason } = verifyBuildMap(m, map);
+  if (!ok) {
+    alert(`The build map didn't match the preview (${reason}). Please report this — don't build from it.`);
+    return;
+  }
+  download(`build-map-${m.cols}x${m.rows}.csv`, asCSV(map));
+});
+
+$('printSheet').addEventListener('click', () => {
+  const m = state.mosaic;
+  const html = buildPrintSheetHTML(m, { title: 'Brick Mosaic' });
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Your browser blocked the print window. Allow pop-ups for this page and try again.');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+});
+
+$('dlWanted').addEventListener('click', () => {
+  const m = state.mosaic;
+  download(
+    `wanted-list-${m.cols}x${m.rows}.xml`,
+    new Blob([toWantedListXML(m, { partId: PARTS.plate.id })], { type: 'application/xml' }),
+  );
+});
+
+// ===========================================================================
+
+buildTiles();
+syncTiles();
+syncSliders();
+syncBackdrops();
+syncOutlineButtons();
+goto(1);
+</script>
+</body>
+</html>

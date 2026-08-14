@@ -1,0 +1,12 @@
+{
+  "name": "brick-mosaic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Photo -> brick mosaic design: LAB quantization, dithering, grid map and bill of materials.",
+  "scripts": {
+    "test": "node --test 'test/*.test.mjs'",
+    "preview": "node scripts/preview.mjs",
+    "serve": "node scripts/serve.mjs 5173"
+  }
+}
