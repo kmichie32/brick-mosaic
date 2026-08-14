@@ -143,18 +143,35 @@ export function analyzeBuild(mosaic, { minCount = 20 } = {}) {
 }
 
 /**
- * Cost estimate. Takes price-per-piece as an argument on purpose — real prices
- * depend on color, condition, seller and the day, so this is arithmetic the
- * caller supplies the rate for, not a quote.
+ * Cost estimate. Takes the rates as arguments on purpose — real prices depend
+ * on color, condition, seller and the day, so this is arithmetic the caller
+ * supplies the rate for, not a quote.
+ *
+ * **Baseplates are part of the cost.** They were left out once, while the build
+ * list displayed the baseplate count immediately beside the total — so the
+ * number understated a real 15×15 build by $20–37, the single largest omission
+ * in it. A mosaic needs something to sit on; that is not an accessory.
+ *
+ * Still excluded: shipping is only counted if the caller supplies a rate, and
+ * `shippingPerLot` is a crude model — BrickLink charges per *seller*, not per
+ * lot, and one seller can often fill every lot. Treat it as an upper bound.
  *
  * @param {import('./mosaic.js').Mosaic} mosaic
  * @param {number} pricePerPiece
- * @param {{shippingPerLot?: number}} [opts]
+ * @param {{shippingPerLot?: number, baseplatePrice?: number}} [opts]
  */
-export function estimateCost(mosaic, pricePerPiece, { shippingPerLot = 0 } = {}) {
+export function estimateCost(mosaic, pricePerPiece, { shippingPerLot = 0, baseplatePrice = 0 } = {}) {
+  const layout = baseplateLayout(mosaic.cols, mosaic.rows);
   const pieces = mosaic.totalBricks * pricePerPiece;
+  const baseplates = layout.total * baseplatePrice;
   const shipping = mosaic.bom.length * shippingPerLot;
-  return { pieces, shipping, total: pieces + shipping };
+  return {
+    pieces,
+    baseplates,
+    baseplateCount: layout.total,
+    shipping,
+    total: pieces + baseplates + shipping,
+  };
 }
 
 // ---------------------------------------------------------------------------

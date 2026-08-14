@@ -111,6 +111,15 @@ Validated against BrickLink on 2026-08-14 — see `docs/bricklink-validation.md`
   $0.02–$0.27 depending on color. It happens to land within 20% on a typical
   design because the overestimate on common colors cancels the underestimate on
   scarce ones. It also ignores shipping, which is per-seller and material.
+- **Sourcing it yourself costs ~2.5× a prepackaged kit.** Brick Me sells the
+  identical 15×15, 2304-brick design for $59.99 including baseplates and
+  instructions; the same thing on BrickLink is ~$140–165. They manufacture
+  LEGO-compatible bricks in bulk, this buys genuine LEGO secondhand at
+  marketplace retail — a supply-chain gap, not a sourcing mistake. **Never imply
+  this route saves money.** The build list is framed inventory-first ("check what
+  you already have", *then* price the rest) for exactly this reason. What's
+  actually true: free if you own the bricks, genuine LEGO, your choice of parts,
+  the photo never leaves the browser, and sizes nobody sells.
 - **The palette contains a price trap.** It carries the pre-2004 grays *and*
   their modern replacements. Light Gray/Light Bluish Gray (ΔE 4.80) and Dark
   Gray/Dark Bluish Gray (ΔE 7.10) are the two closest pairs in the whole

@@ -482,10 +482,20 @@
           "Subject only" aren't listed, because you don't buy them.
         </p>
 
-        <div class="field-label">Rough cost</div>
+        <div class="field-label">Check what you already have</div>
+        <p class="note">
+          The list above is what this design <em>needs</em>, not what you have to buy. If
+          there's a bin in the closet, start there — sorting out the colors you already own
+          is the cheapest part of this by a wide margin, and it costs nothing.
+        </p>
+
+        <div class="field-label">If you need to buy them</div>
         <div class="costrow">
           <label for="ppp">Price per piece
             <input type="number" id="ppp" value="0.06" min="0.01" max="1" step="0.01">
+          </label>
+          <label for="bpp">Per baseplate
+            <input type="number" id="bpp" value="9.00" min="0" max="50" step="0.50">
           </label>
           <div class="costout" id="costOut"></div>
         </div>
@@ -1553,17 +1563,25 @@ function renderWarnings(m) {
 
 function renderCost(m) {
   const rate = Number($('ppp').value);
-  if (!Number.isFinite(rate) || rate <= 0) {
+  const plateRate = Number($('bpp').value);
+  if (!Number.isFinite(rate) || rate <= 0 || !Number.isFinite(plateRate) || plateRate < 0) {
     $('costOut').textContent = '—';
+    $('costNote').textContent = '';
     return;
   }
-  const { total } = estimateCost(m, rate);
+  const { total, pieces, baseplates, baseplateCount } = estimateCost(m, rate, {
+    baseplatePrice: plateRate,
+  });
   $('costOut').innerHTML =
-    `$${total.toFixed(2)} <span>for ${m.totalBricks.toLocaleString()} pieces</span>`;
+    `$${total.toFixed(2)} <span>to buy everything new</span>`;
   $('costNote').textContent =
-    `Pieces only — excludes baseplates and shipping, and you'll pay a minimum per seller ` +
-    `across ${m.bom.length} color lots. The rate above is a placeholder: check live prices, ` +
-    `since rare colors run several times the common ones.`;
+    `$${pieces.toFixed(2)} in pieces plus $${baseplates.toFixed(2)} for ${baseplateCount} ` +
+    `baseplate${baseplateCount === 1 ? '' : 's'}. Shipping is on top, and you'll pay a minimum ` +
+    `per seller across ${m.bom.length} color lots. Both rates are starting guesses — check ` +
+    `live prices, because rare colors run several times the common ones. Worth knowing: if ` +
+    `you're buying every brick new, a prepackaged mosaic kit is often cheaper than sourcing ` +
+    `it yourself. This is the better deal when you already own bricks, want real LEGO parts, ` +
+    `or want a design nobody sells.`;
 }
 
 function renderVendors() {
@@ -1589,9 +1607,11 @@ $('simplify').addEventListener('change', () => {
   renderResults();
 });
 
-$('ppp').addEventListener('input', () => {
-  if (state.mosaic) renderCost(state.mosaic);
-});
+for (const id of ['ppp', 'bpp']) {
+  $(id).addEventListener('input', () => {
+    if (state.mosaic) renderCost(state.mosaic);
+  });
+}
 
 function download(name, blob) {
   const a = document.createElement('a');

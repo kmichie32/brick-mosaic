@@ -61,8 +61,8 @@ Per-piece, from the last 6 months of *actual sales* (quantity-weighted average):
 | Reddish Brown | 88 | 22 | $0.04 | $0.04 | 926,452 |
 | Dark Green | 80 | 21 | $0.03 | $0.04 | 936,619 |
 
-Priced properly this design is **$112.59** in parts, against **$138.24** at a
-flat $0.06. So the placeholder is within ~20% — but by luck, not construction:
+Priced properly this design is **$112.59** in 1×1 plates, against **$138.24** at
+a flat $0.06. So the placeholder is within ~20% — but by luck, not construction:
 
 - It is wrong per-color by up to **9×** (Tan $0.02 → Dark Gray $0.27).
 - It overestimates the common colors, which is what cancels the underestimate on
@@ -70,6 +70,38 @@ flat $0.06. So the placeholder is within ~20% — but by luck, not construction:
 - It ignores **shipping**, which is per-seller and real: 15 lots typically means
   3–6 sellers at $4–8 each. `estimateCost` already takes `shippingPerLot`; the
   UI passes nothing.
+
+## Against buying a kit
+
+Brick Me sells a 2×2-baseplate kit at 15"×15" and **2,304 bricks** — the same
+size and the same piece count as this design, down to the brick. Their listed
+variant price is **$59.99**, including bricks, transparent baseplates, a
+separator tool and custom printed instructions.
+
+Sourcing the identical thing on BrickLink:
+
+| | |
+| --- | --- |
+| 2,304 × 1×1 plate, at real per-color prices | $112.59 |
+| 4 × 32×32 baseplate (3811, ~$9.20 new / $5.08 used) | $20–37 |
+| Shipping, single seller | ~$8–15 |
+| **Total** | **~$140–165** |
+
+**DIY costs roughly 2.3–2.7× the kit.** The reason is structural and no amount
+of cart optimization fixes it: they sell LEGO-*compatible* bricks manufactured
+in bulk, at about $0.026/piece all-in. This buys genuine LEGO secondhand, where
+every 1×1 plate has been sorted, listed and stocked by a small seller who needs
+a margin — about $0.049/piece before baseplates or shipping.
+
+So **"cheaper than buying a kit" is not true and must not be implied anywhere in
+the UI.** What is true: it's free if you already own the bricks, it's genuine
+LEGO, you choose the parts and palette, the photo never leaves the browser, and
+you can make sizes nobody sells. The build list is framed inventory-first for
+this reason — check what you have, then price what's missing.
+
+(Their other product lines start at $89.99, and this variant reads "sold out" on
+the page while the Shopify variant data says $59.99. The conclusion holds at
+either number.)
 
 ## The legacy gray trap
 

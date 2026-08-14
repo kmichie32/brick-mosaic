@@ -65,9 +65,31 @@ test('estimateCost is arithmetic over the caller-supplied rate', () => {
   const c = estimateCost(m, 0.05, { shippingPerLot: 4 });
   assert.equal(c.pieces, 1024 * 0.05);
   assert.equal(c.shipping, m.bom.length * 4);
-  assert.equal(c.total, c.pieces + c.shipping);
+  assert.equal(c.total, c.pieces + c.shipping + c.baseplates);
   // Zero shipping is the default.
   assert.equal(estimateCost(m, 0.05).shipping, 0);
+});
+
+test('estimateCost charges for the baseplates the build needs', () => {
+  // Baseplates were omitted once while the build list displayed their count
+  // right beside the total, understating a real 15x15 build by $20-37. A
+  // mosaic has to sit on something, so it belongs in the total.
+  const m = buildMosaic(photo, { cols: 48, rows: 48 });
+  const c = estimateCost(m, 0.05, { baseplatePrice: 9 });
+
+  assert.equal(c.baseplateCount, 4, '48x48 needs a 2x2 grid of 32x32 baseplates');
+  assert.equal(c.baseplates, 4 * 9);
+  assert.equal(c.total, c.pieces + c.baseplates);
+  assert.ok(c.total > c.pieces, 'baseplates must move the total');
+});
+
+test('estimateCost still reports the baseplate count when they are free', () => {
+  // Someone reusing baseplates they own passes 0 -- they should still be told
+  // how many the build takes, because that is a "do you have these?" question.
+  const m = buildMosaic(photo, { cols: 48, rows: 48 });
+  const c = estimateCost(m, 0.05);
+  assert.equal(c.baseplateCount, 4);
+  assert.equal(c.baseplates, 0);
 });
 
 // --- simplification ---------------------------------------------------------
