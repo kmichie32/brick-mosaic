@@ -97,10 +97,25 @@ count; empty studs never leak into the shopping list.
 **Not yet verified against reality** — flag these before anyone spends money:
 - **Palette RGB values** are published approximations, not measured bricks. This
   is the largest remaining source of preview-vs-reality error.
-- **Part-color availability** is assumed. Some of the 46 colors may be scarce or
-  expensive as 1×1 plates.
 - **The BrickLink Wanted List XML has never been round-tripped** through an
-  actual import. It follows the documented format and parses clean.
+  actual import. It follows the documented format and parses clean, and every
+  color id in it has been checked against the catalog — but no one has uploaded
+  the file, which needs a logged-in account.
+
+Checked against BrickLink's public catalog on 2026-08-14 — see
+`docs/bricklink-validation.md` for the numbers:
+- **Part-color availability** is no longer assumed. All 46 colors exist as 1×1
+  plate (3024), and supply dwarfs what a mosaic needs.
+- **`$0.06`/piece is a bad estimate, not a slightly-off one.** Real prices run
+  $0.02–$0.27 depending on color. It happens to land within 20% on a typical
+  design because the overestimate on common colors cancels the underestimate on
+  scarce ones. It also ignores shipping, which is per-seller and material.
+- **The palette contains a price trap.** It carries the pre-2004 grays *and*
+  their modern replacements. Light Gray/Light Bluish Gray (ΔE 4.80) and Dark
+  Gray/Dark Bluish Gray (ΔE 7.10) are the two closest pairs in the whole
+  palette, and the legacy half costs 5–7× more. Quantization has no cost input,
+  so the choice between them turns on a difference no one can see. Left alone
+  deliberately: every fix changes output for every design.
 
 ## Testing
 

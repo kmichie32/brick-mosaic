@@ -1,0 +1,84 @@
+# BrickLink validation — 2026-08-14
+
+Checked against BrickLink's public catalog and price guide. No account, no
+upload: everything here is read-only public data for part **3024 (1×1 plate)**.
+
+Test design: Medium (48×48 = 2304 studs), square, Floyd–Steinberg, simplify on
+(`minCount: 20`). 19 colors quantized, 4 dropped, **15 colors** in the final BOM.
+
+## What is now verified
+
+**All 15 colors exist as 1×1 plate.** Every `<COLOR>` in the generated Wanted
+List maps to a real BrickLink color that part 3024 is catalogued in.
+
+**The XML is internally consistent.** `sum(MINQTY)` = 2304 = `totalBricks`, no
+duplicate part/color lots, every id resolves to a palette entry whose name
+matches its `<REMARKS>`.
+
+**Supply is not a problem at this scale.** The scarcest color in the design
+still has ~21,000 pieces listed against a need of 38.
+
+## What is still NOT verified
+
+**The upload itself.** The file has still never been through
+`bricklink.com/v2/wanted/upload.page` — that needs a logged-in account. Format
+correctness is inferred from the documented schema, not observed.
+
+**Palette RGB values.** Unchanged. Still published approximations.
+
+## Prices — the $0.06 placeholder
+
+Per-piece, from the last 6 months of *actual sales* (quantity-weighted average):
+
+| Color | BL id | Need | New | Used | Listed (new) |
+| --- | --- | --- | --- | --- | --- |
+| Black | 11 | 418 | $0.04 | $0.05 | 2,145,776 |
+| Dark Tan | 69 | 287 | $0.04 | $0.05 | 597,253 |
+| Dark Blue | 63 | 261 | $0.03 | $0.04 | 627,073 |
+| Dark Bluish Gray | 85 | 257 | $0.04 | $0.05 | 2,679,264 |
+| Nougat | 28 | 237 | $0.06 | $0.15 | 190,290 |
+| Medium Nougat | 150 | 224 | $0.03 | $0.03 | 1,354,442 |
+| **Sand Blue** | 55 | 221 | **$0.09** | **$0.26** | 171,357 |
+| Light Nougat | 90 | 107 | $0.06 | $0.09 | 208,600 |
+| Tan | 2 | 83 | $0.02 | $0.03 | 3,121,592 |
+| Dark Purple | 89 | 48 | $0.05 | $0.07 | 163,618 |
+| Dark Brown | 120 | 41 | $0.04 | $0.05 | 482,055 |
+| Olive Green | 155 | 39 | $0.04 | $0.05 | 375,437 |
+| **Dark Gray** | 10 | 38 | **$0.27** | **$0.22** | 21,717 |
+| Reddish Brown | 88 | 22 | $0.04 | $0.04 | 926,452 |
+| Dark Green | 80 | 21 | $0.03 | $0.04 | 936,619 |
+
+Priced properly this design is **$112.59** in parts, against **$138.24** at a
+flat $0.06. So the placeholder is within ~20% — but by luck, not construction:
+
+- It is wrong per-color by up to **9×** (Tan $0.02 → Dark Gray $0.27).
+- It overestimates the common colors, which is what cancels the underestimate on
+  the expensive ones. A design weighted toward the scarce end has no such luck.
+- It ignores **shipping**, which is per-seller and real: 15 lots typically means
+  3–6 sellers at $4–8 each. `estimateCost` already takes `shippingPerLot`; the
+  UI passes nothing.
+
+## The legacy gray trap
+
+The palette carries **both** the pre-2004 grays and their modern replacements:
+
+| Legacy | | Modern | | ΔE |
+| --- | --- | --- | --- | --- |
+| Light Gray (9) | $0.19 | Light Bluish Gray (86) | ~$0.04 | 4.80 |
+| Dark Gray (10) | $0.27 | Dark Bluish Gray (85) | $0.04 | 7.10 |
+
+Those are the **two closest color pairs in the entire 46-color palette** —
+closer than any other pair, by a margin. The quantizer has no cost input, so
+which one it picks is decided by a ΔE difference no one can see, and the wrong
+pick costs 5–7× per piece.
+
+This design hit it: it bought *both* Dark Bluish Gray (257 pieces, $0.04) and
+Dark Gray (38 pieces, $0.27). Those 38 pieces are 9% of the parts cost for 1.6%
+of the bricks, and they are visually interchangeable with the ones next to them.
+
+Light Gray is also genuinely scarce as new stock — 102 lots, versus thousands
+for the modern equivalent.
+
+**Not fixed here.** The options — drop the legacy pair, weight quantization by
+price, or warn in the build list — all change output for every design, so that
+is a product decision rather than a cleanup.
