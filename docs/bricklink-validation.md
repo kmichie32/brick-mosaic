@@ -18,13 +18,26 @@ matches its `<REMARKS>`.
 **Supply is not a problem at this scale.** The scarcest color in the design
 still has ~21,000 pieces listed against a need of 38.
 
+**The upload works.** Round-tripped through
+`bricklink.com/v2/wanted/upload.page` on 2026-08-14 with a logged-in account.
+BrickLink parsed the XML, reached "Step 2 of 2: Verify", and resolved all 15
+lots against part 3024. Every color name BrickLink rendered from the `<COLOR>`
+id matched the name this code put in `<REMARKS>` — **15/15 color ids correct**.
+Quantities came through intact and Condition was blank, as intended.
+
+Note the upload page takes the XML **pasted into a textarea**, not a file. The
+app's export button was download-only, which made the real flow worse than
+copy-and-paste; `index.html` now leads with a copy button because of this.
+
 ## What is still NOT verified
 
-**The upload itself.** The file has still never been through
-`bricklink.com/v2/wanted/upload.page` — that needs a logged-in account. Format
-correctness is inferred from the documented schema, not observed.
+**Palette RGB values.** Unchanged. Still published approximations, and now the
+largest remaining source of preview-vs-reality error by some distance.
 
-**Palette RGB values.** Unchanged. Still published approximations.
+**Cart totals.** The $112.59 figure is built from price-guide averages, not
+from an actual cart. Running BrickLink's optimizer against the uploaded list
+would price it against real sellers and expose the shipping cost that the
+per-piece model ignores entirely.
 
 ## Prices — the $0.06 placeholder
 

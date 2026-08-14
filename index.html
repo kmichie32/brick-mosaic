@@ -497,7 +497,12 @@
       <div>
         <div class="previewwrap"><canvas id="finalCanvas"></canvas></div>
         <div class="actions" style="margin-top:16px; flex-direction:column; align-items:stretch">
-          <button class="btn" id="dlWanted">Download BrickLink wanted list</button>
+          <button class="btn" id="copyWanted">Copy BrickLink wanted list</button>
+          <p class="note">
+            BrickLink's upload page wants the text pasted into a box, not a file — so copy
+            is usually the one you want. Paste it at <em>Wanted &rarr; Upload</em>.
+          </p>
+          <button class="btn ghost" id="dlWanted">Download it as a file instead</button>
           <button class="btn ghost" id="printSheet">Print build sheet (actual size)</button>
           <button class="btn ghost" id="dlPng">Save the picture</button>
           <button class="btn ghost" id="dlCsv">Shopping list (CSV)</button>
@@ -1636,13 +1641,39 @@ $('printSheet').addEventListener('click', () => {
   w.document.close();
 });
 
-$('dlWanted').addEventListener('click', () => {
+/**
+ * Copy is the primary action, not download. BrickLink's upload page takes the
+ * XML pasted into a textarea -- handing someone a .xml file means they have to
+ * open it in something and copy it out again. Verified against the real page.
+ */
+$('copyWanted').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  const xml = toWantedListXML(state.mosaic, { partId: PARTS.plate.id });
+  const flash = (msg) => {
+    const was = btn.dataset.label ?? (btn.dataset.label = btn.textContent);
+    btn.textContent = msg;
+    setTimeout(() => { btn.textContent = was; }, 2500);
+  };
+  try {
+    await navigator.clipboard.writeText(xml);
+    flash('Copied — now paste it into BrickLink');
+  } catch {
+    // The clipboard API needs a secure context, so file:// and plain http fail.
+    // Falling back to the download keeps the button from being a dead end.
+    dlWantedFile();
+    flash('Copy blocked — downloaded instead');
+  }
+});
+
+function dlWantedFile() {
   const m = state.mosaic;
   download(
     `wanted-list-${m.cols}x${m.rows}.xml`,
     new Blob([toWantedListXML(m, { partId: PARTS.plate.id })], { type: 'application/xml' }),
   );
-});
+}
+
+$('dlWanted').addEventListener('click', dlWantedFile);
 
 // ===========================================================================
 

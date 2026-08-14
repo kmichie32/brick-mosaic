@@ -97,13 +97,14 @@ count; empty studs never leak into the shopping list.
 **Not yet verified against reality** — flag these before anyone spends money:
 - **Palette RGB values** are published approximations, not measured bricks. This
   is the largest remaining source of preview-vs-reality error.
-- **The BrickLink Wanted List XML has never been round-tripped** through an
-  actual import. It follows the documented format and parses clean, and every
-  color id in it has been checked against the catalog — but no one has uploaded
-  the file, which needs a logged-in account.
+- **Cart totals.** Costs come from price-guide averages, never from a real cart,
+  so per-seller shipping is still unmodelled.
 
-Checked against BrickLink's public catalog on 2026-08-14 — see
-`docs/bricklink-validation.md` for the numbers:
+Validated against BrickLink on 2026-08-14 — see `docs/bricklink-validation.md`:
+- **The Wanted List XML imports.** Uploaded to the real page: it parsed, and all
+  **15/15 color ids** resolved to the colors named in `<REMARKS>`. The upload
+  page wants XML *pasted*, not a file — which is why the build list leads with a
+  copy button and offers download second. Don't reverse that.
 - **Part-color availability** is no longer assumed. All 46 colors exist as 1×1
   plate (3024), and supply dwarfs what a mosaic needs.
 - **`$0.06`/piece is a bad estimate, not a slightly-off one.** Real prices run

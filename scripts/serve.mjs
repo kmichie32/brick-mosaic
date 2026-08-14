@@ -13,7 +13,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname);
-const PORT = Number(process.argv[2] || 5173);
+const PORT = Number(process.argv[2] || process.env.PORT || 5173);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
