@@ -1,0 +1,16 @@
+{
+  // Committed so the deploy is deterministic. Without this file, Cloudflare
+  // auto-detects settings on every build and answers its own setup prompts
+  // with fallback values — which is how node_modules ended up being served.
+  //
+  // Only used if this deploys as a Worker. A Cloudflare *Pages* project
+  // ignores this file entirely, and serves at brick-mosaic.pages.dev, which is
+  // the origin hardcoded in index.html, robots.txt and sitemap.xml.
+  "name": "brick-mosaic",
+  "compatibility_date": "2026-08-15",
+  "observability": { "enabled": true },
+  "assets": {
+    // The site is the repo root; .assetsignore carves out what must not ship.
+    "directory": "."
+  }
+}
