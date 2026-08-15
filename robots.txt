@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# The tuning harness is a developer tool, not a page anyone should land on
+# from a search result.
+Disallow: /harness.html
+
+Sitemap: https://brick-mosaic.pages.dev/sitemap.xml

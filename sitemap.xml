@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One page, so this is mostly a formality — but it is how you hand Google a
+     canonical URL directly. Update the origin here, in robots.txt, and in the
+     canonical/og:url tags together if the domain changes. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://brick-mosaic.pages.dev/</loc>
+    <lastmod>2026-08-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test 'test/*.test.mjs'",
     "preview": "node scripts/preview.mjs",
+    "ogimage": "node scripts/ogimage.mjs",
     "serve": "node scripts/serve.mjs 5173"
   }
 }

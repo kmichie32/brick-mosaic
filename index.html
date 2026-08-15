@@ -7,15 +7,43 @@
 <meta name="description" content="Turn a photo into a buildable brick mosaic: a preview, a bill of materials, a printable 1:1 build sheet, and a BrickLink wanted list. Runs entirely in your browser — the photo never leaves your device.">
 <meta name="theme-color" content="#d8342b">
 
-<!-- Enough for a link to preview as something rather than nothing. No og:image
-     yet: that needs a real raster file, and platforms won't render SVG. -->
+<!-- og:image and canonical must be absolute, and crawlers resolve them against
+     nothing — so these hardcode the deployed origin. CHANGE BOTH if the site
+     moves to a custom domain, or previews will point at the old host. -->
+<link rel="canonical" href="https://brick-mosaic.pages.dev/">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://brick-mosaic.pages.dev/">
+<meta property="og:site_name" content="Brick Mosaic">
 <meta property="og:title" content="Brick Mosaic — turn a photo into bricks">
 <meta property="og:description" content="Turn a photo into a buildable brick mosaic. Free, runs in your browser, and the photo never leaves your device.">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://brick-mosaic.pages.dev/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A photo of a sphere beside the same image rebuilt as a mosaic of 1x1 brick plates.">
+<meta name="twitter:card" content="summary_large_image">
 
 <!-- The header brick, as a data URI: no extra request, no file to lose. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='7' height='5' rx='2' fill='%23d8342b'/%3E%3Crect x='20' y='4' width='7' height='5' rx='2' fill='%23d8342b'/%3E%3Crect x='3' y='8' width='26' height='19' rx='4' fill='%23d8342b'/%3E%3Crect x='3' y='22' width='26' height='5' rx='2' fill='%23000' opacity='.14'/%3E%3C/svg%3E">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Brick Mosaic",
+  "url": "https://brick-mosaic.pages.dev/",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "Any browser",
+  "description": "Turn a photo into a buildable brick mosaic: a preview, a bill of materials, a printable 1:1 build sheet, and a BrickLink wanted list. Runs entirely in the browser.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "featureList": [
+    "Photo to brick mosaic preview",
+    "Bill of materials by colour and part",
+    "Printable true-size build sheet",
+    "BrickLink wanted list export",
+    "Runs offline in the browser; photos are never uploaded"
+  ]
+}
+</script>
 <style>
   :root {
     --paper:   #fbf7f0;
@@ -87,7 +115,7 @@
     border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px;
   }
   .card + .card { margin-top: 20px; }
-  .card h2 { font-size: 21px; margin-bottom: 4px; }
+  .card h1, .card h2 { font-size: 21px; margin-bottom: 4px; font-weight: 700; }
   .card .sub { color: var(--muted); font-size: 15px; margin-bottom: 20px; }
 
   .cols { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
@@ -320,6 +348,23 @@
     color: var(--muted); background: #f4efe6; border-radius: 999px; padding: 2px 8px;
   }
   .vendor .d { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  /* Landing copy. Sits under the drop zone and disappears with step 1, so it
+     never clutters the working flow. */
+  .about { margin-top: 34px; border-top: 1px solid var(--line); padding-top: 26px; }
+  .about-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+  .about h2 { font-size: 16px; margin-bottom: 6px; }
+  .about p { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+  .about > h2 { margin-top: 30px; }
+  .faq { margin-top: 12px; }
+  .faq dt { font-weight: 700; font-size: 14.5px; margin-top: 16px; }
+  .faq dd { margin: 4px 0 0; color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+
+  .sitefoot {
+    max-width: 1120px; margin: 0 auto; padding: 0 24px 48px;
+    color: var(--muted); font-size: 13px; line-height: 1.6;
+  }
+  .sitefoot a { color: var(--muted); }
+
   .hidden { display: none !important; }
   .working { color: var(--muted); font-size: 14px; }
   .scroller { overflow-x: auto; }
@@ -327,11 +372,13 @@
   @media (max-width: 560px) {
     .wrap { padding: 0 14px 60px; }
     .card { padding: 18px 16px; border-radius: 14px; }
-    .card h2 { font-size: 19px; }
+    .card h1, .card h2 { font-size: 19px; }
     .drop { padding: 40px 16px; }
     .cropwrap, .previewwrap { padding: 12px; }
     .tiles.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .tiles.two { grid-template-columns: minmax(0, 1fr); }
+    /* Two columns of body copy on a phone is ~140px each — stack instead. */
+    .about-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
     .actions .btn { flex: 1; justify-content: center; }
     .facts { grid-template-columns: 1fr 1fr; }
   }
@@ -342,7 +389,8 @@
 <div class="topbar">
   <div class="logo"><span class="brick"></span> Brick Mosaic</div>
   <div class="spacer"></div>
-  <a class="linkish" href="harness.html">Developer view</a>
+  <!-- harness.html is still there for tuning, just not advertised to someone
+       making a mosaic of their dog. Reach it by URL. -->
 </div>
 
 <div class="wrap">
@@ -355,18 +403,91 @@
 
   <!-- ================= STEP 1 ================= -->
   <section class="card" id="panel1">
-    <h2>Start with a photo you love</h2>
+    <!-- The page's only h1, and the one line a search result will show. Says
+         what the tool does rather than greeting you, because on load this is
+         the only heading a crawler sees. -->
+    <h1>Turn a photo into a brick mosaic</h1>
     <p class="sub">A pet, a wedding, the dog dressed as a wizard. Faces and bold shapes work best.</p>
     <div class="drop" id="drop">
       <div class="studs">
         <i style="background:#d8342b"></i><i style="background:#f5b81c"></i>
         <i style="background:#2b7cd3"></i><i style="background:#3d9a5c"></i>
       </div>
-      <div class="big">Drop a photo here</div>
-      <div class="small">or <u>browse your files</u> · JPG, PNG or HEIC · stays on your device</div>
+      <div class="big">Upload an image</div>
+      <!-- No format list: HEIC only decodes in Safari, so naming it promised
+           something Chrome can't do. Anything the browser can open works, and
+           whatever it can't gets an explicit message instead. -->
+      <div class="small">Drop it here or <u>browse your files</u> · stays on your device</div>
       <input type="file" id="file" accept="image/*" hidden>
     </div>
     <div class="upload-error hidden" id="uploadError"></div>
+
+    <!-- Real copy, not keyword filler. Two jobs: tell a first-time visitor what
+         this actually is before they hand over a photo, and give search engines
+         something to index — on load this section is the only substantial text
+         on the page, since steps 2-4 are display:none until you upload. -->
+    <div class="about">
+      <div class="about-grid">
+        <div>
+          <h2>How it works</h2>
+          <p>
+            Your photo is cropped to the shape and size you choose, then each stud-sized
+            square is matched to its nearest real brick colour in CIELAB, the colour space
+            that matches how eyes actually judge difference. You get a preview that is the
+            mosaic, brick for brick — not an artistic impression of one.
+          </p>
+        </div>
+        <div>
+          <h2>What you get</h2>
+          <p>
+            A bill of materials listing every colour and how many you need, a build map,
+            a printable build sheet at true size with a calibration bar, and a wanted list
+            you can paste straight into BrickLink to price the parts.
+          </p>
+        </div>
+      </div>
+
+      <h2>Questions people ask</h2>
+      <dl class="faq">
+        <dt>Does my photo get uploaded anywhere?</dt>
+        <dd>
+          No. The whole pipeline runs in your browser — there is no server, no account and
+          no upload. Close the tab and nothing is kept.
+        </dd>
+
+        <dt>Is this cheaper than buying a mosaic kit?</dt>
+        <dd>
+          Usually not, and it would be easy to pretend otherwise. Sourcing 2,300 individual
+          1×1 plates secondhand runs roughly two and a half times what a prepackaged kit
+          costs, because kits are made from bulk-manufactured bricks. This is the better
+          option when you already own bricks, want genuine LEGO® parts, want to choose the
+          parts and palette yourself, or want a size nobody sells.
+        </dd>
+
+        <dt>What size should I pick?</dt>
+        <dd>
+          Detail comes from stud count, and people consistently choose too small. A face
+          needs roughly 30 studs across before eyes and a mouth read at all, so a whole
+          person in a 32×32 frame comes out as a silhouette. Medium (48×48, about 15
+          inches square) fits one face well.
+        </dd>
+
+        <dt>What parts do I actually order?</dt>
+        <dd>
+          1×1 plates (BrickLink part 3024) by default, which give the classic studded look.
+          1×1 tiles (3070b) give a flat, stud-free finish and usually cost more. You will
+          also need baseplates to build on — the build list works out how many.
+        </dd>
+
+        <dt>Can I print the design at real size?</dt>
+        <dd>
+          Yes. The build sheet prints at exactly one stud per cell, so at 100% scale the
+          paper is the finished piece's true size — hold it against the wall before you buy
+          anything. Every page carries a 100&nbsp;mm bar to check your printer didn't
+          silently shrink it.
+        </dd>
+      </dl>
+    </div>
   </section>
 
   <!-- ================= STEP 2 ================= -->
@@ -584,6 +705,16 @@
   </section>
 </div>
 
+<!-- LEGO is a trademark. It's the word people search for and the accurate term
+     for the parts, so it's used descriptively with attribution rather than as
+     branding — which is both the honest framing and the safe one. -->
+<footer class="sitefoot">
+  Brick Mosaic is a free tool that runs entirely in your browser. Your photos are never
+  uploaded. Not affiliated with, authorised or sponsored by the LEGO Group, BrickLink or
+  BrickOwl. LEGO® is a trademark of the LEGO Group, which does not sponsor or endorse this
+  site.
+</footer>
+
 <script type="module">
 import { buildMosaic, renderToRGBA, toGridMap } from './src/mosaic.js';
 import { PALETTE, paletteFromCodes, GRAYSCALE_CODES } from './src/palette.js';
@@ -685,12 +816,35 @@ function showUploadError(msg) {
   el.classList.toggle('hidden', !msg);
 }
 
+/** Refuse a file this big before decoding it, not after the tab has stalled. */
+const MAX_FILE_MB = 40;
+
+const prettySize = (bytes) => bytes >= 1024 * 1024
+  ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
 async function loadFile(file) {
   if (!file) return;
   showUploadError('');
 
   if (!file.type.startsWith('image/')) {
-    showUploadError(`"${file.name}" doesn't look like an image (${file.type || 'unknown type'}). Try a JPG, PNG, or HEIC.`);
+    showUploadError(
+      `"${file.name}" isn't an image${file.type ? ` — it's ${file.type}` : ''}. ` +
+      `Pick a photo file and try again.`);
+    return;
+  }
+
+  // Decoding happens in memory, so a huge file is a stalled tab rather than a
+  // clean failure. Checking the size first turns that into a message.
+  if (file.size > MAX_FILE_MB * 1024 * 1024) {
+    showUploadError(
+      `"${file.name}" is ${prettySize(file.size)}, which is larger than the ` +
+      `${MAX_FILE_MB} MB this can open in the browser. Export it at a smaller size and try again.`);
+    return;
+  }
+
+  if (file.size === 0) {
+    showUploadError(`"${file.name}" is empty — the file may not have copied across properly.`);
     return;
   }
 
@@ -710,9 +864,9 @@ async function loadFile(file) {
     showUploadError(
       heic
         ? `"${file.name}" is an iPhone HEIC photo, which this browser can't open. ` +
-          `Safari opens them, or export the photo as JPG and try again.`
-        : `Couldn't open "${file.name}" — the file may be corrupted or in a format your ` +
-          `browser can't decode. Try re-exporting it as a JPG or PNG and upload again.`,
+          `Safari opens them — or on your iPhone, share the photo as JPG and try again.`
+        : `Couldn't open "${file.name}" — the file may be damaged, or in a format this ` +
+          `browser doesn't support. Re-export it as a JPG or PNG and try again.`,
     );
     return;
   }
