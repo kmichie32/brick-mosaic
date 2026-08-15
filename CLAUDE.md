@@ -95,8 +95,15 @@ pixel; print cells are exactly `STUD_MM`; quantities always sum to the piece
 count; empty studs never leak into the shopping list.
 
 **Not yet verified against reality** — flag these before anyone spends money:
-- **Palette RGB values** are published approximations, not measured bricks. This
-  is the largest remaining source of preview-vs-reality error.
+- **Palette RGB values** are published approximations, not measured bricks, and
+  this is now quantified — see `docs/palette-sources.md`. Rebrickable is 43/46
+  byte-identical to us (same ancestor, not a check). LDraw disagrees by **mean
+  ΔE 13.0**, with 40 of 45 shared colors over ΔE 5. That's about twice the
+  spacing between the palette's own closest neighbours (4.80), so **the source
+  you trust can change which brick a pixel maps to** — preview accuracy is
+  capped here, not by the algorithm. **Don't re-point the palette at LDraw**;
+  that trades one unmeasured guess for another and changes every design. Only
+  photographing real bricks settles it.
 - **Cart totals.** Costs come from price-guide averages, never from a real cart,
   so per-seller shipping is still unmodelled.
 

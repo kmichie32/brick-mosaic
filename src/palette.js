@@ -1,14 +1,20 @@
 /**
  * Brick color palette.
  *
- * 44 solid (opaque, non-transparent, non-metallic) LEGO colors that are widely
- * available as 1x1 plates/tiles on BrickLink. `code` is the short label printed
- * on the grid map; `legoId` is LEGO's own color ID; `blId` is the BrickLink
- * color ID (what you'd actually filter by when sourcing parts).
+ * 46 solid (opaque, non-transparent, non-metallic) LEGO colors, all confirmed
+ * available as 1x1 plate (BrickLink part 3024). `code` is the short label
+ * printed on the grid map; `legoId` is LEGO's own color ID; `blId` is the
+ * BrickLink color ID (what you'd actually filter by when sourcing parts).
  *
- * !! RGB values are the commonly-published approximations of each color, not
- * measured values from physical bricks. They're good enough for matching, but
- * verify against BrickLink before shipping a BOM that people buy from.
+ * !! RGB values are published approximations, not measured from physical
+ * bricks, and the published sources disagree with each other by more than this
+ * palette's own colors are spaced apart. Cross-checked 2026-08-14 against
+ * LDraw's LDConfig: mean deltaE 13.0, and 40 of 45 shared colors differ by more
+ * than deltaE 5. For scale, the two closest colors *in* this palette are
+ * deltaE 4.8 apart. So the choice of reference can change which brick a pixel
+ * maps to, and no amount of tuning settles it -- only measuring real bricks
+ * does. See docs/palette-sources.md. Do not "fix" these against another
+ * published list; that just swaps one guess for another.
  */
 
 import { hexToRgb, rgbToLab } from './color.js';
@@ -50,7 +56,8 @@ const SPECS = [
   { code: 'DTN', name: 'Dark Tan',             hex: '#958A73', legoId: 138, blId: 69  },
   { code: 'LNG', name: 'Light Nougat',         hex: '#F6D7B3', legoId: 283, blId: 90  },
   { code: 'NOU', name: 'Nougat',               hex: '#D09168', legoId: 18,  blId: 28  },
-  { code: 'MNG', name: 'Medium Nougat',        hex: '#AA7D55', legoId: 84,  blId: 150 },
+  // legoId was 84, which is LDraw's *code* for this color, not LEGO's id.
+  { code: 'MNG', name: 'Medium Nougat',        hex: '#AA7D55', legoId: 312, blId: 150 },
   { code: 'RBR', name: 'Reddish Brown',        hex: '#582A12', legoId: 192, blId: 88  },
   { code: 'DBR', name: 'Dark Brown',           hex: '#352100', legoId: 308, blId: 120 },
 
@@ -76,7 +83,9 @@ const SPECS = [
   // Purples
   { code: 'LAV', name: 'Lavender',             hex: '#C9CAE2', legoId: 325, blId: 154 },
   { code: 'MLV', name: 'Medium Lavender',      hex: '#A06EB9', legoId: 324, blId: 157 },
-  { code: 'PUR', name: 'Purple',               hex: '#81007B', legoId: 22,  blId: 24  },
+  // Same mistake: 22 is LDraw's code for Purple. LEGO 22 is a different color
+  // entirely (Medium Reddish Violet), so this looked plausible while being wrong.
+  { code: 'PUR', name: 'Purple',               hex: '#81007B', legoId: 104, blId: 24  },
   { code: 'DPU', name: 'Dark Purple',          hex: '#3F3691', legoId: 268, blId: 89  },
 ];
 
