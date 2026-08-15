@@ -91,6 +91,10 @@
     border: 2px dashed var(--line); border-radius: var(--radius);
     padding: 56px 24px; text-align: center; background: #fffdf9;
     transition: border-color .15s, background .15s;
+    /* The whole box opens the file picker on click (see the 'drop' listener
+       below), not just the "browse your files" text -- without this, hovering
+       plain text shows the text-selection I-beam instead of a pointer. */
+    cursor: pointer;
   }
   .drop.over { border-color: var(--brand); background: #fff6f4; }
   .drop .big { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
@@ -1079,6 +1083,51 @@ function toNorm(px, py, w, h) {
   return { x: px / (w * tview.z) + tview.cx - half, y: py / (h * tview.z) + tview.cy - half };
 }
 
+// Grab radii in canvas CSS pixels -- toPx already applies pan/zoom, so a fixed
+// pixel threshold stays the same size on screen at any zoom level.
+const HANDLE_PX = 10;
+const EDGE_PX = 8;
+
+/** The closest existing point on a committed loop, within HANDLE_PX. */
+function nearestVertex(px, py, w, h) {
+  let best = null;
+  const loops = state.outline?.loops ?? [];
+  for (let li = 0; li < loops.length; li++) {
+    const loop = loops[li];
+    for (let pi = 0; pi < loop.length; pi++) {
+      const q = toPx(loop[pi], w, h);
+      const d = Math.hypot(px - q.x, py - q.y);
+      if (d <= HANDLE_PX && (!best || d < best.d)) best = { loopIndex: li, pointIndex: pi, d };
+    }
+  }
+  return best;
+}
+
+/**
+ * The closest point on any committed *edge*, within EDGE_PX. A simplified
+ * loop can have long straight stretches with no vertex nearby -- this lets
+ * you grab the line itself anywhere along it, not just at an existing corner,
+ * by inserting a new point at the grab site.
+ */
+function nearestEdge(px, py, w, h) {
+  let best = null;
+  const loops = state.outline?.loops ?? [];
+  for (let li = 0; li < loops.length; li++) {
+    const loop = loops[li];
+    for (let i = 0; i < loop.length; i++) {
+      const a = toPx(loop[i], w, h);
+      const b = toPx(loop[(i + 1) % loop.length], w, h);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      let t = len2 ? ((px - a.x) * dx + (py - a.y) * dy) / len2 : 0;
+      t = Math.min(1, Math.max(0, t));
+      const d = Math.hypot(px - (a.x + dx * t), py - (a.y + dy * t));
+      if (d <= EDGE_PX && (!best || d < best.d)) best = { loopIndex: li, afterIndex: i, d };
+    }
+  }
+  return best;
+}
+
 /**
  * The edge map is built from the cropped photo, cached until the crop moves.
  * 320px on the long edge is plenty: it only has to locate boundaries to within
@@ -1148,6 +1197,24 @@ function drawOutline() {
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 1.6;
   ctx.stroke();
+
+  // Handles at every committed point, so it reads as a line you can grab and
+  // drag rather than a fixed trace. Hidden mid-stroke so a new trace doesn't
+  // fight the old shape's handles for attention.
+  if (!state.draft.length) {
+    for (const loop of state.outline.loops ?? []) {
+      for (const p of loop) {
+        const q = toPx(p, w, h);
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.55)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+    }
+  }
 
   // The open line in progress, dashed so it reads as unfinished.
   if (state.draft.length > 1) {
@@ -1256,7 +1323,8 @@ function syncOutlineButtons() {
       'Press Finish shape (or end near the yellow dot) to close it.'
     : loops === 0
       ? 'Nothing traced yet — the whole picture is kept.'
-      : `${loops} ${loops === 1 ? 'shape' : 'shapes'}. Draw inside one to cut a piece out.`;
+      : `${loops} ${loops === 1 ? 'shape' : 'shapes'}. Drag any point on the line to reshape it, ` +
+        `or draw inside one to cut a piece out.`;
 }
 
 for (const b of $('outlineModes').children) {
@@ -1273,6 +1341,7 @@ for (const b of $('outlineModes').children) {
   const active = new Map();          // pointerId -> last position
   let drawingId = null;
   let pinch = null;
+  let draggingVertex = null;         // {loopIndex, pointIndex, pointerId} while reshaping a line
 
   const local = (e) => {
     const r = cv.getBoundingClientRect();
@@ -1295,24 +1364,54 @@ for (const b of $('outlineModes').children) {
       pinch = { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), z: tview.z,
                 cx: tview.cx, cy: tview.cy,
                 mid: { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 } };
-      // Abandon whatever half-stroke the first finger started.
+      // Abandon whatever half-stroke the first finger started, and hand off
+      // any in-progress vertex drag -- it just stays wherever it last moved.
       if (drawingId !== null && state.draft.length) {
         state.draft = state.draft.slice(0, state.draftStart ?? 0);
         drawingId = null;
         drawOutline();
       }
+      draggingVertex = null;
       return;
+    }
+
+    // Grabbing the line itself takes priority over starting a new trace --
+    // that's the point of it. An existing point drags directly; a bare
+    // stretch of edge inserts a new point at the grab site and drags that.
+    const { px, py, w, h } = local(e);
+    if (state.outline.loops?.length) {
+      const hit = nearestVertex(px, py, w, h);
+      if (hit) {
+        draggingVertex = { loopIndex: hit.loopIndex, pointIndex: hit.pointIndex, pointerId: e.pointerId };
+        cv.style.cursor = 'grabbing';
+        return;
+      }
+      const onEdge = nearestEdge(px, py, w, h);
+      if (onEdge) {
+        const loop = state.outline.loops[onEdge.loopIndex];
+        loop.splice(onEdge.afterIndex + 1, 0, toNorm(px, py, w, h));
+        draggingVertex = { loopIndex: onEdge.loopIndex, pointIndex: onEdge.afterIndex + 1, pointerId: e.pointerId };
+        cv.style.cursor = 'grabbing';
+        drawOutline();
+        return;
+      }
     }
 
     drawingId = e.pointerId;
     state.draftStart = state.draft.length;      // so a pinch can roll this back
-    const { px, py, w, h } = local(e);
     state.draft.push(toNorm(px, py, w, h));
   });
 
   cv.addEventListener('pointermove', (e) => {
     if (!active.has(e.pointerId)) return;
     active.set(e.pointerId, e);
+
+    if (draggingVertex && e.pointerId === draggingVertex.pointerId) {
+      const { px, py, w, h } = local(e);
+      state.outline.loops[draggingVertex.loopIndex][draggingVertex.pointIndex] = toNorm(px, py, w, h);
+      drawOutline();
+      return;
+    }
 
     if (pinch && active.size === 2) {
       const [a, b] = [...active.values()];
@@ -1343,6 +1442,19 @@ for (const b of $('outlineModes').children) {
   const release = (e) => {
     active.delete(e.pointerId);
     if (active.size < 2) pinch = null;
+
+    if (draggingVertex && e.pointerId === draggingVertex.pointerId) {
+      draggingVertex = null;
+      cv.style.cursor = '';
+      pushHistory();
+      drawOutline();
+      // The drag is one committed edit, same granularity as finishing a
+      // trace, so the result only recomputes once -- not on every mousemove.
+      runRender();
+      renderResults();
+      return;
+    }
+
     if (e.pointerId !== drawingId) return;
     drawingId = null;
 
@@ -1358,6 +1470,17 @@ for (const b of $('outlineModes').children) {
   };
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', release);
+
+  // Hover-only cursor feedback -- independent of the drawing listener above,
+  // which ignores pointermove until a pointerdown has registered it in
+  // `active`. A grab cursor is the only hint that the line can be dragged.
+  cv.addEventListener('pointermove', (e) => {
+    if (active.has(e.pointerId) || draggingVertex) return;
+    if (!state.outline?.loops?.length) { cv.style.cursor = ''; return; }
+    const { px, py, w, h } = local(e);
+    const near = nearestVertex(px, py, w, h) || nearestEdge(px, py, w, h);
+    cv.style.cursor = near ? 'grab' : '';
+  });
 
   cv.addEventListener('wheel', (e) => {
     e.preventDefault();
