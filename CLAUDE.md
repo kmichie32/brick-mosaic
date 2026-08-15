@@ -8,7 +8,7 @@ the short version plus the things that are easy to break.
 ## Commands
 
 ```bash
-npm test        # 120 tests, node:test, no dependencies
+npm test        # 131 tests, node:test, no dependencies
 npm run serve   # dev server on :5173 — see the caching note below
 npm run preview # renders preview.png in Node: source | flat | dithered
 ```

@@ -3,7 +3,7 @@
 Photo in → brick-color grid out, plus the shopping list to actually build it.
 
 ```bash
-npm test              # 120 tests, no dependencies
+npm test              # 131 tests, no dependencies
 npm run preview       # renders preview.png: source | flat | dithered
 npm run serve         # http://localhost:5173
 ```
@@ -127,9 +127,19 @@ only let you fight it. The crop rect is computed from the pan/zoom and handed to
 46 solid, widely-available LEGO colors in `src/palette.js`, each with a 3-letter
 grid code, LEGO color ID, and BrickLink color ID for sourcing.
 
-⚠️ **The RGB values are the commonly-published approximations, not measurements
-from physical bricks.** They're fine for matching and for this prototype, but
-verify them against BrickLink before anyone buys parts from a generated BOM.
+⚠️ **The RGB values are published approximations, not measurements from physical
+bricks** — and the published sources disagree with each other by more than this
+palette's own colors are spaced apart. Cross-checked against LDraw on
+2026-08-14: **mean ΔE 13.0**, with 40 of 45 shared colors over ΔE 5, while the
+two closest colors *within* the palette are ΔE 4.80 apart. Rebrickable is not an
+independent check — 43 of 46 are byte-identical to ours, because that is where
+ours came from.
+
+So the reference you trust can change which brick a pixel maps to, and preview
+accuracy is capped there rather than by anything in `mosaic.js`. Don't re-point
+the palette at LDraw; that swaps one unmeasured guess for another and changes
+every design. Only photographing real bricks settles it. Full numbers in
+`docs/palette-sources.md`.
 
 ## Background replacement
 
@@ -363,20 +373,42 @@ labels its default as a placeholder to check.
 - Perceptual refinements worth trying: CIEDE2000 instead of CIE76, and
   restricting the palette to colors the user actually has in stock.
 
-## Needs verifying before launch
+## Verified against reality, and what still isn't
 
-Two things are structurally sound but unvalidated against reality:
+Checked on 2026-08-14 — see `docs/bricklink-validation.md`:
 
-1. **Palette RGB values** are the commonly-published approximations (see above).
-2. **Part-color availability.** The palette assumes all 45 colors exist as 1×1
-   plates in buyable quantities. Some certainly don't — rare colors in that
-   specific part may be scarce or expensive enough that a design calling for 300
-   of them isn't practical. The fix is a per-color availability field feeding
-   `analyzeBuild`, populated from the BrickLink API rather than guessed.
+- ✅ **The Wanted List XML imports.** Uploaded to the real BrickLink page: it
+  parsed, and all **15/15 color ids** resolved to the colors named in
+  `<REMARKS>`. The upload page wants the XML *pasted*, not a file, which is why
+  the build list leads with a copy button and offers download second.
+- ✅ **Part-color availability is no longer assumed.** All 46 colors exist as
+  1×1 plate (3024), and listed supply dwarfs what a mosaic needs — the scarcest
+  color in a test design had ~21,000 listed against a need of 38.
+- ⚠️ **`$0.06`/piece is a bad estimate, not a slightly-off one.** Real prices run
+  $0.02–$0.27 by color. It lands within 20% on a typical design only because the
+  overestimate on common colors cancels the underestimate on scarce ones.
+- ⚠️ **The palette carries a price trap.** It has the pre-2004 grays *and* their
+  modern replacements. Light Gray/Light Bluish Gray (ΔE 4.80) and Dark Gray/Dark
+  Bluish Gray (ΔE 7.10) are the two closest pairs in the whole palette, and the
+  legacy half costs 5–7× more. Quantization has no cost input, so the choice
+  turns on a difference nobody can see.
+- ❌ **Palette RGB values** remain unmeasured (see Palette, above). This is now
+  the largest open item.
 
-The Wanted List XML follows the documented format and parses clean, but it has
-not been round-tripped through an actual BrickLink import — that's the first
-thing to test in action.
+### This is not cheaper than buying a kit
+
+Brick Me sells a 2×2-baseplate kit at 15"×15" and **2,304 bricks** — identical
+to the Medium preset, piece for piece — for **$59.99**, including baseplates and
+printed instructions. Sourcing the same design on BrickLink runs **~$140–165**
+($112.59 in plates + $20–37 in baseplates + shipping). **DIY is ~2.5× the kit.**
+
+The gap is structural: they manufacture LEGO-compatible bricks in bulk at about
+$0.026/piece all-in, while this route buys genuine LEGO secondhand at ~$0.049
+before baseplates. No cart optimization closes it, so **never pitch this as
+saving money.** What is actually true: free if you already own the bricks,
+genuine LEGO, your choice of parts and palette, the photo never leaves the
+browser, and sizes nobody sells. The build list is framed inventory-first for
+exactly this reason.
 
 ## Open questions this prototype has bearing on
 

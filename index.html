@@ -4,6 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brick Mosaic — turn a photo into bricks</title>
+<meta name="description" content="Turn a photo into a buildable brick mosaic: a preview, a bill of materials, a printable 1:1 build sheet, and a BrickLink wanted list. Runs entirely in your browser — the photo never leaves your device.">
+<meta name="theme-color" content="#d8342b">
+
+<!-- Enough for a link to preview as something rather than nothing. No og:image
+     yet: that needs a real raster file, and platforms won't render SVG. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Brick Mosaic — turn a photo into bricks">
+<meta property="og:description" content="Turn a photo into a buildable brick mosaic. Free, runs in your browser, and the photo never leaves your device.">
+<meta name="twitter:card" content="summary">
+
+<!-- The header brick, as a data URI: no extra request, no file to lose. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='7' height='5' rx='2' fill='%23d8342b'/%3E%3Crect x='20' y='4' width='7' height='5' rx='2' fill='%23d8342b'/%3E%3Crect x='3' y='8' width='26' height='19' rx='4' fill='%23d8342b'/%3E%3Crect x='3' y='22' width='26' height='5' rx='2' fill='%23000' opacity='.14'/%3E%3C/svg%3E">
 <style>
   :root {
     --paper:   #fbf7f0;
