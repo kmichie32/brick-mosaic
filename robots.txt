@@ -2,7 +2,10 @@ User-agent: *
 Allow: /
 
 # The tuning harness is a developer tool, not a page anyone should land on
-# from a search result.
+# from a search result. Both paths: the host serves it at /harness and
+# 307-redirects /harness.html there, so blocking only the .html would miss the
+# URL that actually resolves.
 Disallow: /harness.html
+Disallow: /harness
 
-Sitemap: https://brick-mosaic.pages.dev/sitemap.xml
+Sitemap: https://brick-mosaic.kmichie32.workers.dev/sitemap.xml

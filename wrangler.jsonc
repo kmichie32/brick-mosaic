@@ -3,9 +3,10 @@
   // auto-detects settings on every build and answers its own setup prompts
   // with fallback values — which is how node_modules ended up being served.
   //
-  // Only used if this deploys as a Worker. A Cloudflare *Pages* project
-  // ignores this file entirely, and serves at brick-mosaic.pages.dev, which is
-  // the origin hardcoded in index.html, robots.txt and sitemap.xml.
+  // This deploys as a Worker, serving at
+  // https://brick-mosaic.kmichie32.workers.dev — that origin is hardcoded in
+  // index.html (canonical, og:url, og:image), robots.txt and sitemap.xml.
+  // Change all four together, or link previews and indexing break silently.
   "name": "brick-mosaic",
   "compatibility_date": "2026-08-15",
   "observability": { "enabled": true },

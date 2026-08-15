@@ -4,7 +4,7 @@
      canonical/og:url tags together if the domain changes. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://brick-mosaic.pages.dev/</loc>
+    <loc>https://brick-mosaic.kmichie32.workers.dev/</loc>
     <lastmod>2026-08-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
