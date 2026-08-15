@@ -1654,9 +1654,14 @@ $('printSheet').addEventListener('click', () => {
   const html = buildPrintSheetHTML(m, { title: 'Brick Mosaic' });
   const w = window.open('', '_blank');
   if (!w) {
-    alert('Your browser blocked the print window. Allow pop-ups for this page and try again.');
+    // alert() is easy to miss (and some embedded browsers suppress it outright,
+    // which makes the button look like it silently does nothing) -- an inline
+    // message next to the button is harder to lose.
+    $('printNote').textContent =
+      'Your browser blocked the print window. Allow pop-ups for this page and click again.';
     return;
   }
+  $('printNote').textContent = '';
   w.document.write(html);
   w.document.close();
 });
