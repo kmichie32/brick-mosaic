@@ -46,6 +46,25 @@ export function normalizeOutline(outline) {
 }
 
 /**
+ * Pull every point into the visible frame.
+ *
+ * `normalizeOutline` deliberately tolerates points slightly outside 0..1, and
+ * `outlineFromMask` deliberately pads past the subject — it can place points
+ * as far as 1.4 from the centre. That is fine for masking, because only the
+ * 0..1 region is ever sampled, but it is not fine for *editing*: the editor
+ * draws and hit-tests inside the frame only, so an outside point is invisible
+ * and impossible to grab. Since the region outside the frame has no effect on
+ * the mask, projecting strays onto the boundary keeps the same coverage while
+ * keeping every point reachable.
+ */
+export function clampOutlineToFrame(outline) {
+  const c = (v) => Math.min(1, Math.max(0, v));
+  return {
+    loops: (outline?.loops ?? []).map((loop) => (loop ?? []).map((p) => ({ x: c(p.x), y: c(p.y) }))),
+  };
+}
+
+/**
  * Ray-casting point-in-polygon, accumulated across every loop with the even-odd
  * rule so nested loops alternate between keeping and cutting.
  */

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   emptyOutline, ovalOutline, normalizeOutline, outlineFromMask,
-  isInside, maskFromOutline, simplifyPath, outlinePointCount,
+  isInside, maskFromOutline, simplifyPath, outlinePointCount, clampOutlineToFrame,
 } from '../src/outline.js';
 import { buildMosaic, EMPTY } from '../src/mosaic.js';
 import { PALETTE } from '../src/palette.js';
@@ -123,6 +123,50 @@ test('outlineFromMask wraps the detected subject without clipping it', () => {
   let clipped = 0;
   for (let i = 0; i < mask.length; i++) if (mask[i] === 0 && back[i] === 1) clipped++;
   assert.equal(clipped, 0, `${clipped} subject cells fell outside the traced outline`);
+});
+
+// --- keeping every point reachable ------------------------------------------
+
+test('a seeded outline has no point outside the frame', () => {
+  // outlineFromMask pads past the subject and can place points as far as 1.4
+  // from centre. The editor only draws and hit-tests inside 0..1, so anything
+  // outside it is invisible and cannot be grabbed -- which stranded points
+  // off-screen for a subject that ran out of frame.
+  const cols = 40, rows = 40;
+  const mask = new Uint8Array(cols * rows).fill(1);
+  // A subject running off the left and top edges, which is what pushes the
+  // radial sweep past the boundary.
+  for (let y = 0; y < 26; y++) for (let x = 0; x < 26; x++) mask[y * cols + x] = 0;
+
+  const raw = outlineFromMask(mask, cols, rows);
+  const strayed = raw.loops.flat().some((p) => p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1);
+  assert.ok(strayed, 'expected the raw sweep to leave the frame, or this test proves nothing');
+
+  for (const p of clampOutlineToFrame(raw).loops.flat()) {
+    assert.ok(p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1,
+      `point (${p.x}, ${p.y}) is outside the frame and could never be grabbed`);
+  }
+});
+
+test('clamping an outline into the frame keeps what it covers', () => {
+  // Clamping projects strays onto the boundary rather than dropping them, so
+  // the subject stays covered -- otherwise this "fix" would eat the edges.
+  const cols = 32, rows = 32;
+  const mask = new Uint8Array(cols * rows).fill(1);
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) mask[y * cols + x] = 0;
+
+  const before = maskFromOutline(outlineFromMask(mask, cols, rows), cols, rows);
+  const after = maskFromOutline(clampOutlineToFrame(outlineFromMask(mask, cols, rows)), cols, rows);
+
+  let lost = 0;
+  for (let i = 0; i < mask.length; i++) if (before[i] === 0 && after[i] === 1) lost++;
+  assert.equal(lost, 0, `${lost} cells stopped being covered after clamping`);
+});
+
+test('clampOutlineToFrame copes with empty and malformed input', () => {
+  assert.deepEqual(clampOutlineToFrame(emptyOutline()).loops, []);
+  assert.deepEqual(clampOutlineToFrame(undefined).loops, []);
+  assert.deepEqual(clampOutlineToFrame({ loops: [null] }).loops, [[]]);
 });
 
 test('outlineFromMask falls back to an oval on an empty or full mask', () => {

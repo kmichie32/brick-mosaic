@@ -143,8 +143,14 @@
   .tile[aria-pressed="true"] { border-color: var(--ink); background: #fffaf2; box-shadow: inset 0 0 0 1px var(--ink); }
   .tile .name { font-weight: 700; font-size: 15px; }
   .tile .meta { color: var(--muted); font-size: 13px; }
-  .tile .shape { border: 2px solid var(--muted); border-radius: 4px; flex: none; }
-  .tile[aria-pressed="true"] .shape { border-color: var(--ink); }
+  .tile .shape {
+    border: 2px solid var(--muted); border-radius: 4px; flex: none;
+    background: color-mix(in srgb, var(--muted) 22%, transparent);
+  }
+  .tile[aria-pressed="true"] .shape {
+    border-color: var(--ink);
+    background: color-mix(in srgb, var(--ink) 22%, transparent);
+  }
 
   .field-label {
     font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -542,7 +548,7 @@ import {
 } from './src/sourcing.js';
 import { BACKDROPS } from './src/backdrop.js';
 import { FINISH_PRESETS } from './src/parts.js';
-import { ovalOutline, outlineFromMask, emptyOutline, simplifyPath } from './src/outline.js';
+import { ovalOutline, outlineFromMask, emptyOutline, simplifyPath, clampOutlineToFrame } from './src/outline.js';
 import { toShoppingListCSV, toBuildMapCSV, verifyBuildMap } from './src/exports.js';
 import { edgeMap, snapToEdges, resamplePath, smoothPath } from './src/trace.js';
 import { buildPrintSheetHTML, pageLayout } from './src/printsheet.js';
@@ -713,7 +719,10 @@ document.addEventListener('drop', (e) => {
 
 function buildTiles() {
   $('aspects').innerHTML = ASPECTS.map((a) => {
-    const s = 26;
+    // 4:5 and 5:4 are subtle ratios: at 26px the three icons differed by 5px
+    // on a thin outline and all three read as the same square. Bigger, and
+    // filled rather than hollow, so the silhouette carries the difference.
+    const s = 30;
     const w = a.w >= a.h ? s : Math.round((s * a.w) / a.h);
     const h = a.h >= a.w ? s : Math.round((s * a.h) / a.w);
     return `<button class="tile" data-aspect="${a.id}" aria-pressed="false" style="justify-content:center">
@@ -1006,9 +1015,11 @@ function seedOutline() {
       background: { remove: true, backdrop: state.bg.backdrop, tolerance: state.bg.tolerance },
     });
     const bg = probe.background;
-    state.outline = bg && !bg.suspect
+    // Clamped because outlineFromMask pads past the frame, and a point outside
+    // it can never be grabbed -- see clampOutlineToFrame.
+    state.outline = clampOutlineToFrame(bg && !bg.suspect
       ? outlineFromMask(bg.mask, g.cols, g.rows)
-      : ovalOutline();
+      : ovalOutline());
   } catch {
     state.outline = ovalOutline();
   }
@@ -1288,9 +1299,10 @@ function finishShape() {
 
   // "Trace" starts a new shape; everything after is a cut, because even-odd
   // means a loop drawn inside an existing one punches a hole.
-  state.outline = state.drawMode === 'replace'
+  // Drawing can run past the canvas edge; clamped so every point stays grabbable.
+  state.outline = clampOutlineToFrame(state.drawMode === 'replace'
     ? { loops: [loop] }
-    : { loops: [...(state.outline.loops ?? []), loop] };
+    : { loops: [...(state.outline.loops ?? []), loop] });
   state.drawMode = 'cut';
   state.draft = [];
 
@@ -1408,7 +1420,10 @@ for (const b of $('outlineModes').children) {
 
     if (draggingVertex && e.pointerId === draggingVertex.pointerId) {
       const { px, py, w, h } = local(e);
-      state.outline.loops[draggingVertex.loopIndex][draggingVertex.pointIndex] = toNorm(px, py, w, h);
+      // Clamped so a point can never be dragged off the frame and stranded.
+      const p = toNorm(px, py, w, h);
+      state.outline.loops[draggingVertex.loopIndex][draggingVertex.pointIndex] =
+        { x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) };
       drawOutline();
       return;
     }
