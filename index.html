@@ -279,11 +279,28 @@
   .costout { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .costout span { font-size: 13px; font-weight: 500; color: var(--muted); }
 
+  /* Sits under the export buttons as the answer to "now where do I paste this?",
+     so it needs to read as a destination rather than a footnote. */
+  .orderbox {
+    margin-top: 18px; padding: 14px; border-radius: 14px;
+    background: #f4efe6; border: 1px solid #e2dbcd;
+  }
+  .orderbox .field-label { margin-top: 0; }
+  .orderbox #vendors { margin-top: 10px; }
+  .orderbox .vendor:last-child { margin-bottom: 0; }
+
   .vendor {
     display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
     margin-bottom: 10px; text-decoration: none; color: inherit; background: #fff;
+    position: relative; padding-right: 34px;
+  }
+  /* An arrow, because these open a new tab and nothing else here does. */
+  .vendor::after {
+    content: '↗'; position: absolute; right: 13px; top: 12px;
+    color: var(--muted); font-size: 14px;
   }
   .vendor:hover { border-color: #cdbfab; background: #fffaf2; }
+  .vendor:hover::after { color: var(--brand); }
   .vendor .head { display: flex; align-items: baseline; gap: 8px; }
   .vendor .name { font-weight: 700; font-size: 15px; }
   .vendor .tag {
@@ -519,9 +536,6 @@
           <div class="costout" id="costOut"></div>
         </div>
         <p class="note" id="costNote"></p>
-
-        <div class="field-label">Where to order</div>
-        <div id="vendors"></div>
       </div>
       <div>
         <div class="previewwrap"><canvas id="finalCanvas"></canvas></div>
@@ -537,6 +551,16 @@
           <button class="btn ghost" id="dlCsv">Shopping list (CSV)</button>
           <button class="btn ghost" id="dlMap">Build map (CSV)</button>
           <p class="note" id="printNote"></p>
+        </div>
+
+        <!-- Directly under the export buttons on purpose: you copy the wanted
+             list, and the very next question is where to paste it. -->
+        <div class="orderbox">
+          <div class="field-label">Where to order</div>
+          <p class="note" style="margin-top:-4px">
+            Paste the wanted list at whichever of these you use.
+          </p>
+          <div id="vendors"></div>
         </div>
       </div>
     </div>
