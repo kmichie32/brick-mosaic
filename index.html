@@ -1284,6 +1284,9 @@ function outlineSize() {
 // The editor's own viewport, so you can zoom in and trace accurately.
 const tview = { z: 1, cx: 0.5, cy: 0.5 };
 
+/** Which handle the cursor is over, so drawOutline can highlight it. */
+let hoverVertex = null;
+
 function clampView() {
   const half = 0.5 / tview.z;
   tview.cx = Math.min(1 - half, Math.max(half, tview.cx));
@@ -1303,8 +1306,18 @@ function toNorm(px, py, w, h) {
 
 // Grab radii in canvas CSS pixels -- toPx already applies pan/zoom, so a fixed
 // pixel threshold stays the same size on screen at any zoom level.
-const HANDLE_PX = 10;
-const EDGE_PX = 8;
+//
+// Generous on purpose. Missing a handle doesn't do nothing, it falls through to
+// "start a new freehand trace" -- so a near-miss while reshaping made the dashed
+// tracer appear over a shape the user was only trying to nudge. The cost of a
+// too-small target is an unwanted stroke; the cost of a too-large one is only
+// that you can't start a new trace immediately next to the existing line.
+const HANDLE_PX = 18;
+const EDGE_PX = 13;
+
+/** Drawn radius of a handle, and of the one under the cursor. */
+const HANDLE_R = 5;
+const HANDLE_R_HOVER = 7.5;
 
 /** The closest existing point on a committed loop, within HANDLE_PX. */
 function nearestVertex(px, py, w, h) {
@@ -1420,15 +1433,19 @@ function drawOutline() {
   // drag rather than a fixed trace. Hidden mid-stroke so a new trace doesn't
   // fight the old shape's handles for attention.
   if (!state.draft.length) {
-    for (const loop of state.outline.loops ?? []) {
-      for (const p of loop) {
-        const q = toPx(p, w, h);
+    const loops = state.outline.loops ?? [];
+    for (let li = 0; li < loops.length; li++) {
+      for (let pi = 0; pi < loops[li].length; pi++) {
+        const q = toPx(loops[li][pi], w, h);
+        // The one under the cursor grows and takes the brand colour, so you can
+        // see which point you're about to move before committing to the drag.
+        const hot = hoverVertex && hoverVertex.loopIndex === li && hoverVertex.pointIndex === pi;
         ctx.beginPath();
-        ctx.arc(q.x, q.y, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
+        ctx.arc(q.x, q.y, hot ? HANDLE_R_HOVER : HANDLE_R, 0, Math.PI * 2);
+        ctx.fillStyle = hot ? '#d8342b' : '#fff';
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,.55)';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = hot ? '#fff' : 'rgba(0,0,0,.55)';
+        ctx.lineWidth = hot ? 2 : 1.2;
         ctx.stroke();
       }
     }
@@ -1667,6 +1684,7 @@ for (const b of $('outlineModes').children) {
 
     if (draggingVertex && e.pointerId === draggingVertex.pointerId) {
       draggingVertex = null;
+      hoverVertex = null;        // the point moved; don't leave the old one lit
       cv.style.cursor = '';
       pushHistory();
       drawOutline();
@@ -1693,15 +1711,31 @@ for (const b of $('outlineModes').children) {
   cv.addEventListener('pointerup', release);
   cv.addEventListener('pointercancel', release);
 
-  // Hover-only cursor feedback -- independent of the drawing listener above,
-  // which ignores pointermove until a pointerdown has registered it in
-  // `active`. A grab cursor is the only hint that the line can be dragged.
+  // Hover feedback -- independent of the drawing listener above, which ignores
+  // pointermove until a pointerdown has registered it in `active`. Sets the
+  // grab cursor and highlights the handle you'd get, so a near-miss is visible
+  // before it turns into an unwanted stroke.
   cv.addEventListener('pointermove', (e) => {
     if (active.has(e.pointerId) || draggingVertex) return;
     if (!state.outline?.loops?.length) { cv.style.cursor = ''; return; }
     const { px, py, w, h } = local(e);
-    const near = nearestVertex(px, py, w, h) || nearestEdge(px, py, w, h);
-    cv.style.cursor = near ? 'grab' : '';
+    const vertex = nearestVertex(px, py, w, h);
+    cv.style.cursor = (vertex || nearestEdge(px, py, w, h)) ? 'grab' : '';
+
+    // Only repaint when the highlighted handle actually changes -- pointermove
+    // fires constantly and drawOutline redraws the whole photo.
+    const same = vertex && hoverVertex
+      && vertex.loopIndex === hoverVertex.loopIndex
+      && vertex.pointIndex === hoverVertex.pointIndex;
+    if (!same && (vertex || hoverVertex)) {
+      hoverVertex = vertex && { loopIndex: vertex.loopIndex, pointIndex: vertex.pointIndex };
+      drawOutline();
+    }
+  });
+
+  // A handle left highlighted after the cursor leaves reads as still-selected.
+  cv.addEventListener('pointerleave', () => {
+    if (hoverVertex) { hoverVertex = null; drawOutline(); }
   });
 
   cv.addEventListener('wheel', (e) => {
