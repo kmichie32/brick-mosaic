@@ -132,13 +132,22 @@
 
   /* ---------- choice tiles ---------- */
   .tiles { display: grid; gap: 10px; }
-  .tiles.two { grid-template-columns: repeat(2, 1fr); }
-  .tiles.three { grid-template-columns: repeat(3, 1fr); }
+  /* minmax(0, 1fr), not 1fr: plain `1fr` means minmax(auto, 1fr), and that
+     `auto` floor refuses to shrink a track below its content. "Landscape"
+     beside its icon is wider than a third of the column, so the row used to
+     overflow its panel by ~100px instead of the tracks sharing the space. */
+  .tiles.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tiles.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tile {
     text-align: left; padding: 12px 14px; border-radius: 12px;
     border: 1px solid var(--line); background: #fff; display: flex; gap: 12px;
     align-items: center; transition: border-color .15s, background .15s;
+    min-width: 0;                     /* let the track actually shrink it */
   }
+  /* Shape tiles stack, so three of them fit a narrow column without the label
+     and icon competing for the same line. */
+  #aspects .tile { flex-direction: column; gap: 7px; padding: 12px 8px; }
+  #aspects .tile .name { font-size: 14px; }
   .tile:hover { border-color: #cdbfab; }
   .tile[aria-pressed="true"] { border-color: var(--ink); background: #fffaf2; box-shadow: inset 0 0 0 1px var(--ink); }
   .tile .name { font-weight: 700; font-size: 15px; }
@@ -292,8 +301,8 @@
     .card h2 { font-size: 19px; }
     .drop { padding: 40px 16px; }
     .cropwrap, .previewwrap { padding: 12px; }
-    .tiles.three { grid-template-columns: 1fr 1fr; }
-    .tiles.two { grid-template-columns: 1fr; }
+    .tiles.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tiles.two { grid-template-columns: minmax(0, 1fr); }
     .actions .btn { flex: 1; justify-content: center; }
     .facts { grid-template-columns: 1fr 1fr; }
   }
@@ -725,7 +734,7 @@ function buildTiles() {
     const s = 30;
     const w = a.w >= a.h ? s : Math.round((s * a.w) / a.h);
     const h = a.h >= a.w ? s : Math.round((s * a.h) / a.w);
-    return `<button class="tile" data-aspect="${a.id}" aria-pressed="false" style="justify-content:center">
+    return `<button class="tile" data-aspect="${a.id}" aria-pressed="false">
       <span class="shape" style="width:${w}px;height:${h}px"></span>
       <span class="name">${a.label}</span></button>`;
   }).join('');
