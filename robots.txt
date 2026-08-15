@@ -8,4 +8,4 @@ Allow: /
 Disallow: /harness.html
 Disallow: /harness
 
-Sitemap: https://brick-mosaic.kmichie32.workers.dev/sitemap.xml
+Sitemap: https://brick-mosaic.pages.dev/sitemap.xml

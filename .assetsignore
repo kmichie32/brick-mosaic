@@ -1,9 +1,12 @@
 # What NOT to serve, when the deployed asset directory is the repo root.
 #
-# Wrangler installs itself into node_modules at deploy time, so the very
-# directory being uploaded grows a 144 MiB `workerd` binary — over Cloudflare's
-# 25 MiB per-asset limit, which fails the whole deploy. Everything else here is
-# just not web content: it lives on GitHub, it doesn't belong on the site.
+# The site deploys as a Cloudflare *Pages* project, which does not read this
+# file — with an empty build command nothing installs, so there is no
+# node_modules to leak. It is kept because a Workers deploy DOES read it, and
+# that path failed exactly once already: wrangler installed itself into the
+# directory being uploaded, and the 144 MiB `workerd` binary blew past
+# Cloudflare's 25 MiB per-asset limit. Everything else here is simply not web
+# content: it lives on GitHub, it doesn't belong on the site.
 
 node_modules
 .git
