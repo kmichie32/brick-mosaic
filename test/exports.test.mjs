@@ -133,6 +133,27 @@ test('print cells are exactly one stud, so 100% scale is 1:1', () => {
   assert.match(html, /exactly 100&nbsp;mm/);
 });
 
+test('the sheet offers a way to print it, and hides that when printing', () => {
+  // The sheet opens in a bare window with no browser chrome of its own, so
+  // without a button there is nothing to click and no hint that the print
+  // dialog is where "Save as PDF" lives.
+  const m = buildMosaic(photo, { cols: 20, rows: 20 });
+  const html = buildPrintSheetHTML(m);
+  assert.match(html, /onclick="window\.print\(\)"/, 'no way to trigger printing');
+  assert.match(html, /Save as PDF/, 'does not say where a PDF comes from');
+  // A toolbar that printed itself onto page one would be a regression.
+  assert.match(html, /@media print \{ \.toolbar \{ display: none !important; \} \}/);
+});
+
+test('the sheet says how many pages it will print', () => {
+  const one = buildMosaic(photo, { cols: 20, rows: 24 });
+  assert.match(buildPrintSheetHTML(one), /\b1 sheet\./, 'should not say "1 sheets"');
+
+  const many = buildMosaic(photo, { cols: 96, rows: 96 });
+  const total = pageLayout(many, 'letter').total;
+  assert.match(buildPrintSheetHTML(many), new RegExp(`${total} sheets\\.`));
+});
+
 test('the sheet tiles across pages and covers every stud exactly once', () => {
   const m = buildMosaic(photo, { cols: 96, rows: 96 });
   const layout = pageLayout(m, 'letter');

@@ -176,6 +176,32 @@ export function buildPrintSheetHTML(mosaic, { paper = 'letter', title = 'Brick M
   .lg { display: inline-flex; align-items: center; gap: 1.2mm; }
   .lg i { width: 3mm; height: 3mm; border: 0.15mm solid rgba(0,0,0,.35); display: inline-block; }
   @media screen { body { padding: 8mm 0; } .sheet { box-shadow: 0 2px 12px rgba(0,0,0,.15); padding: 6mm; } }
+
+  /* The sheet opens in a bare window, so without this there is nothing to
+     click and no hint that Cmd/Ctrl+P is the way to get a PDF out of it. */
+  .toolbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 4mm; flex-wrap: wrap;
+    width: ${page.w - page.margin * 2}mm; margin: 0 auto 6mm;
+    padding: 3mm 4mm; background: #fffdf9; border: 1px solid #e2dbcd;
+    border-radius: 3mm; box-shadow: 0 2px 12px rgba(0,0,0,.10);
+  }
+  .toolbar button {
+    font: inherit; font-weight: 700; font-size: 10pt; cursor: pointer;
+    padding: 2.4mm 5mm; border: 0; border-radius: 2mm;
+    background: #b6432f; color: #fff;
+  }
+  .toolbar .hint { color: #6b6257; font-size: 8pt; flex: 1 1 60mm; }
+  @media print { .toolbar { display: none !important; } }
 </style></head>
-<body>${sheets.join('')}</body></html>`;
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    <span class="hint">
+      ${layout.total} sheet${layout.total === 1 ? '' : 's'}. To keep a copy, choose
+      <strong>Save as PDF</strong> as the destination in the print dialog. Print at
+      <strong>100% scale</strong> with "fit to page" off, then check the bar measures 100&nbsp;mm.
+    </span>
+  </div>
+${sheets.join('')}</body></html>`;
 }
