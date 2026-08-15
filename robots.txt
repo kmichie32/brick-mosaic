@@ -8,4 +8,16 @@ Allow: /
 Disallow: /harness.html
 Disallow: /harness
 
+# Cloudflare Pages serves the whole repo root, and does not read .assetsignore
+# (that is a Workers feature). Nothing here is secret — the repo is public — but
+# none of it is web content, and letting it be indexed puts source files and
+# working notes in search results competing with the actual page.
+Disallow: /docs/
+Disallow: /test/
+Disallow: /scripts/
+Disallow: /README.md
+Disallow: /CLAUDE.md
+Disallow: /package.json
+Disallow: /.assetsignore
+
 Sitemap: https://brick-mosaic.pages.dev/sitemap.xml
