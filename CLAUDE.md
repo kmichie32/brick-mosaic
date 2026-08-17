@@ -11,6 +11,7 @@ the short version plus the things that are easy to break.
 npm test        # 131 tests, node:test, no dependencies
 npm run serve   # dev server on :5173 — see the caching note below
 npm run preview # renders preview.png in Node: source | flat | dithered
+npm run ogimage # regenerates assets/og-image.png (the social card)
 ```
 
 Two front ends over one pipeline:
@@ -21,6 +22,40 @@ Two front ends over one pipeline:
 cache headers, so browsers cache the ES modules and you end up testing stale
 code while the page looks updated. `scripts/serve.mjs` sends `no-store`. This
 wasted real time before it was fixed.
+
+The same trap has a second form: **a browser tab opened before a change keeps
+the old modules in its ES module registry even after a normal reload**, and
+`no-store` doesn't help. Hard-reload, or test in a fresh tab. This produced a
+"the code isn't there" false alarm once already.
+
+## Hosting
+
+Live at **https://brick-mosaic.pages.dev** — Cloudflare Pages, connected to
+`kmichie32/brick-mosaic` on GitHub, deploying `main` automatically. No build
+command, output directory `/`. There is no build step and there are no
+dependencies, so the deploy is a file copy.
+
+Things that are easy to break:
+
+- **The origin is hardcoded in four places** and they must change together:
+  `index.html` (canonical, `og:url`, `og:image`, and the JSON-LD `url`),
+  `robots.txt` (the `Sitemap:` line) and `sitemap.xml` (`<loc>`). A canonical
+  pointing at a host that doesn't resolve is worse than none — it tells search
+  engines the real page lives somewhere that doesn't exist. This shipped broken
+  once, and only turned up because the deployed tags were checked against the
+  deployed URL.
+- **Pages serves the whole repo root and ignores `.assetsignore`** (that's a
+  Workers feature). `README.md`, `CLAUDE.md`, `package.json`, `docs/`, `test/`
+  and `scripts/` are all reachable over HTTP. Nothing there is secret — the repo
+  is public — but `robots.txt` excludes them so they don't compete with the real
+  page in search results. `.assetsignore` is kept only in case anything ever
+  deploys as a Worker again.
+- **An earlier Workers deploy failed** because the asset directory was the repo
+  root and `wrangler` installed itself into it, making a 144 MiB `workerd`
+  binary an "asset" — past Cloudflare's 25 MiB limit. Empty build command is
+  what keeps that from happening.
+- **`404.html` is load-bearing.** Without it Pages answers unknown paths with
+  the homepage and a `200`, which search engines treat as soft 404s.
 
 ## Architecture
 
